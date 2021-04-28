@@ -283,19 +283,13 @@ void Spliter()
 }
 
 
-// Sends a "Reset command timeout" command to the Tic.  We must
-// call this at least once per second, or else a command timeout
-// error will happen.  The Tic's default command timeout period
-// is 1000 ms, but it can be changed or disabled in the Tic
-// Control Center.
+
 void resetCommandTimeout()
 {
   tic.resetCommandTimeout();
 }
 
-// Delays for the specified number of milliseconds while
-// resetting the Tic's command timeout so that its movement does
-// not get interrupted by errors.
+
 void delayWhileResettingCommandTimeout(uint32_t ms)
 {
   uint32_t start = millis();
@@ -305,11 +299,6 @@ void delayWhileResettingCommandTimeout(uint32_t ms)
   } while ((uint32_t)(millis() - start) <= ms);
 }
 
-// Polls the Tic, waiting for it to reach the specified target
-// position.  Note that if the Tic detects an error, the Tic will
-// probably go into safe-start mode and never reach its target
-// position, so this function will loop infinitely.  If that
-// happens, you will need to reset your Arduino.
 void waitForPosition(int32_t targetPosition)
 {
   do
