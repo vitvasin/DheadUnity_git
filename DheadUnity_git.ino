@@ -2,7 +2,30 @@
 #include <Dynamixel2Arduino.h>
 #include <Tic.h>
 #include "pitches.h"
-//add to git
+// ros library
+#include <ros.h>
+#include <std_msgs/String.h>
+
+ros::NodeHandle nh;
+std_msgs::String str_msg;
+String rev_msg ="";
+bool ROSFlag = false;
+String inputString = "";
+bool stringComplete = false;
+void commandfromHMD( const std_msgs::String &msg)
+{
+  ROSFlag =true;
+ str_msg.data = msg.data;
+ 
+ inputString = msg.data;
+ stringComplete = true;
+ 
+}
+
+ros::Subscriber<std_msgs::String> sub("head_waist_motor_cmd", commandfromHMD );
+
+
+ros::Publisher feedback("Head_Feedback", &str_msg);
 
 //Controller Declare
 #if defined(ARDUINO_OpenCR) // When using official ROBOTIS board with DXL circuit.
@@ -36,8 +59,8 @@ using namespace ControlTableItem; //This namespace is required to use Control ta
 
 //String process variable
 String incoming = "";
-String inputString = "";
-bool stringComplete = false;
+//String inputString = "";
+
 String OutPut[8] = {"", "", "", "", "", "", "", ""};
 
 //LED variable
@@ -50,6 +73,9 @@ unsigned long lasttime = 0; //
 
 void setup() {
 
+  nh.initNode();
+  nh.advertise(feedback);
+  nh.subscribe(sub);
   // Set up I2C. >> for Tic
   Wire.begin();
   Wire.setClock(400000);
@@ -153,8 +179,12 @@ void loop()
     }
   */
   resetCommandTimeout();
- // delayWhileResettingCommandTimeout(1);
-  //Serial.println(tic.getErrorsOccurred());
+  //////////////////////////////// test ros node
+  if (ROSFlag == false)str_msg.data = "Node standby";
+  else ROSFlag = false;
+  feedback.publish( &str_msg );
+  nh.spinOnce();
+  delay(10);
 }
 
 void initializeServo()
@@ -267,8 +297,9 @@ void LEDRun()
   }
 }
 
-
+/*
 void serialEvent() {
+
   while (Serial.available()) {
     // get the new byte:
     char inChar = (char)Serial.read();
@@ -282,7 +313,7 @@ void serialEvent() {
     }
   }
 }
-
+*/
 
 
 void Spliter()
