@@ -1,6 +1,7 @@
 //Library declare
 #include <Dynamixel2Arduino.h>
 #include <Tic.h>
+#include "pitches.h"
 //add to git
 
 //Controller Declare
@@ -11,6 +12,16 @@
 //  #define DEBUG_SERIAL Serial
 const uint8_t DXL_DIR_PIN = 84; // OpenCR Board's DIR PIN.
 #endif
+
+// notes in the melody:
+int melody[] = {
+  NOTE_C4, NOTE_G3, NOTE_G3, NOTE_A3, NOTE_G3, 0, NOTE_B3, NOTE_C4
+};
+
+// note durations: 4 = quarter note, 8 = eighth note, etc.:
+int noteDurations[] = {
+  4, 8, 8, 4, 4, 4, 4, 4
+};
 
 const uint8_t DXL_ID = 1;
 const float DXL_PROTOCOL_VERSION = 1.0;
@@ -90,7 +101,7 @@ Serial.println("Serial Port Started at 115200");
   tic.haltAndSetPosition(0);
 
 
-
+  sound1();
   Serial.println("initialized");
 }
 int z = 0;
@@ -228,6 +239,14 @@ void Home()
 
   }
 
+  tic.haltAndSetPosition(0);
+  tic.exitSafeStart();
+  tic.setTargetPosition(-10000);
+  waitForPosition(-10000);
+
+
+  tic.haltAndSetPosition(0);
+
 }
 
 void getOrientation()
@@ -282,6 +301,24 @@ void Spliter()
   }
 }
 
+void sound1()
+{
+   for (int thisNote = 0; thisNote < 8; thisNote++) {
+
+    // to calculate the note duration, take one second
+    // divided by the note type.
+    //e.g. quarter note = 1000 / 4, eighth note = 1000/8, etc.
+    int noteDuration = 1000 / noteDurations[thisNote];
+    tone(BDPIN_BUZZER, melody[thisNote], noteDuration);
+
+    // to distinguish the notes, set a minimum time between them.
+    // the note's duration + 30% seems to work well:
+    int pauseBetweenNotes = noteDuration * 1.30;
+    delay(pauseBetweenNotes);
+    // stop the tone playing:
+    noTone(BDPIN_BUZZER);
+  }
+}
 
 
 void resetCommandTimeout()
