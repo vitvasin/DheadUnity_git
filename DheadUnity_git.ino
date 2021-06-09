@@ -66,6 +66,8 @@ String OutPut[8] = {"", "", "", "", "", "", "", ""};
 //LED variable
 int led_pin_user[4] = { BDPIN_LED_USER_1, BDPIN_LED_USER_2, BDPIN_LED_USER_3, BDPIN_LED_USER_4 };
 bool LEDFlag[4] = {false, false, false, false};
+// Input Variable
+int limitTop = 2, limitBot = 3;
 
 //Timer variable
 unsigned long period = 500; //time interval
@@ -98,7 +100,8 @@ Serial.println("Serial Port Started at 115200");
   pinMode(led_pin_user[1], OUTPUT);
   pinMode(led_pin_user[2], OUTPUT);
   pinMode(led_pin_user[3], OUTPUT);
-
+  pinMode(limitTop, INPUT_PULLUP);
+  pinMode(limitBot, INPUT_PULLUP);
 
   // initialize Servo
   initializeServo();
