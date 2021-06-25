@@ -221,8 +221,8 @@ void loop()
       int M1 = 2*flexAngle + latAngle;
       int M2 = 2*flexAngle - latAngle;
       //apply to motor
-      dxl.setGoalPosition(1, M1);
-      dxl.setGoalPosition(2, M2);
+      dxl.setGoalPosition(1, M1, UNIT_DEGREE);
+      dxl.setGoalPosition(2, M2, UNIT_DEGREE);
 
 
     }
