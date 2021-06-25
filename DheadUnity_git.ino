@@ -217,9 +217,13 @@ void loop()
       //Extract Output Value [1] == Flexion [2] == Lateral Bending
       int flexAngle = map(OutPut[1].toInt(), 0, 1023, 0, 300);
       int latAngle = map(OutPut[2].toInt(), 0, 1023, 0, 300);
-
+      
+      
       int M1 = 2*flexAngle + latAngle;
       int M2 = 2*flexAngle - latAngle;
+      // M1, M2 must not exceed limited of the motor
+      // Need to test for a relative motion.
+      
       //apply to motor
       dxl.setGoalPosition(1, M1, UNIT_DEGREE);
       dxl.setGoalPosition(2, M2, UNIT_DEGREE);
