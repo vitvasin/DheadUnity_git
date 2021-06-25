@@ -145,6 +145,7 @@ void loop()
     //S,512,512,512,512,512,512,F >>>> default command;
     if (inputString[0] == 'S' && inputString[inputString.length() - 1 ] == 'F') //Check if Headder and Tail are correct then read and process the entire protocal
     {
+      // Direct motor input
       Spliter();
       //control Motor (Servo)
       dxl.setGoalPosition(1, OutPut[1].toInt());
@@ -158,6 +159,75 @@ void loop()
       tic.setTargetPosition(z);
 
     }
+    if (inputString[0] == 'U' && inputString[inputString.length() - 1 ] == 'F') //Check if Headder and Tail are correct then read and process the entire protocal
+    {
+      //Do Flexion then lateral bending [not test yet]
+      Spliter();
+      //control Motor (Servo)
+      dxl.setGoalPosition(3, OutPut[3].toInt());
+      dxl.setGoalPosition(4, OutPut[4].toInt());
+      dxl.setGoalPosition(5, OutPut[5].toInt());
+      //control Motor (Linear Actuator)
+      //Serial.println(OutPut[6]);
+      z = map(OutPut[6].toInt(), 0, 1023, 0, 3000);
+      tic.setTargetPosition(z);
+      int m1_present_position = 0;
+      int m2_present_position = 0;
+      int FAngle =  map(OutPut[1].toInt(), 0, 1023, 0, 300);
+     // int LBAngle = map(OutPut[2].toInt(), 0, 1023, 0, 300);
+      //Flexion
+      int FAngleM =  (FAngle-150)*-1; // minus side
+      int OP1 =  map(FAngle - FAngleM, 0, 300, 0, 1023);
+      dxl.setGoalPosition(1, OutPut[1].toInt());
+      dxl.setGoalPosition(2, OP1);
+      //Wait for finished flexion motion
+      while (abs(OutPut[1].toInt() - m1_present_position) > 1 && abs(OP1 - m2_present_position) > 1)
+      {
+        m1_present_position = dxl.getPresentPosition(1);
+        m2_present_position = dxl.getPresentPosition(2);
+        
+      }
+      
+      //Lateral Bending
+      dxl.setGoalPosition(1, OutPut[2].toInt());
+      dxl.setGoalPosition(2, OutPut[2].toInt());
+      //Wait for finished Lateral Bending Motion
+      while (abs(OutPut[2].toInt() - m1_present_position) > 1 && abs(OutPut[2].toInt() - m2_present_position) > 1)
+      {
+        m1_present_position = dxl.getPresentPosition(1);
+        m2_present_position = dxl.getPresentPosition(2);
+        
+      }
+
+
+    }
+    if (inputString[0] == 'V' && inputString[inputString.length() - 1 ] == 'F') //Check if Headder and Tail are correct then read and process the entire protocal
+    {
+      //Do flexion and lateral beding at the same time [not test yet]
+      Spliter();
+      //control Motor (Servo)
+      dxl.setGoalPosition(3, OutPut[3].toInt());
+      dxl.setGoalPosition(4, OutPut[4].toInt());
+      dxl.setGoalPosition(5, OutPut[5].toInt());
+      //control Motor (Linear Actuator)
+      //Serial.println(OutPut[6]);
+      z = map(OutPut[6].toInt(), 0, 1023, 0, 3000);
+      tic.setTargetPosition(z);
+
+      //Extract Output Value [1] == Flexion [2] == Lateral Bending
+      int flexAngle = map(OutPut[1].toInt(), 0, 1023, 0, 300);
+      int latAngle = map(OutPut[2].toInt(), 0, 1023, 0, 300);
+
+      int M1 = 2*flexAngle + latAngle;
+      int M2 = 2*flexAngle - latAngle;
+      //apply to motor
+      dxl.setGoalPosition(1, M1);
+      dxl.setGoalPosition(2, M2);
+
+
+    }
+
+    
     if (inputString[0] == 'T') //Check if Headder and Tail are correct then read and process the entire protocal
     {
       Serial.println(tic.getErrorsOccurred());
