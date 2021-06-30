@@ -5,27 +5,47 @@
 // ros library
 #include <ros.h>
 #include <std_msgs/String.h>
+#include <std_msgs/Float32MultiArray.h>
 
 ros::NodeHandle nh;
 std_msgs::String str_msg;
-String rev_msg ="";
+std_msgs::Float32MultiArray vec6_msg;
+
+
+String rev_msg = "";
 bool ROSFlag = false;
 String inputString = "";
+float inputVector[6];
 bool stringComplete = false;
-void commandfromHMD( const std_msgs::String &msg)
+float a[6] = {0.1,0.2,0.3,0.4,0.5,0.6};
+void commandfromHMD( const std_msgs::Float32MultiArray& msg)
 {
-  ROSFlag =true;
- str_msg.data = msg.data;
- 
- inputString = msg.data;
- stringComplete = true;
- 
+  ROSFlag = true;
+  vec6_msg = msg;
+  inputVector[0] = msg.data[0];
+  inputVector[1] = msg.data[1];
+  inputVector[2] = msg.data[2];
+  inputVector[3] = msg.data[3];
+  inputVector[4] = msg.data[4];
+  inputVector[5] = msg.data[5];
+  vec6_msg.data = msg.data;
+  /*//Head posture information
+    　Message.data[0] = Camera.transform.position.x;
+      Message.data[1] = Camera.transform.position.y;
+      Message.data[2] = Camera.transform.position.z;
+     //Head posture information
+             Message.data[3] = Camera.transform.eulerAngles.x;
+             Message.data[4] = Camera.transform.eulerAngles.y;
+             Message.data[5] = Camera.transform.eulerAngles.z;
+  */
+  stringComplete = true;
+
 }
 
-ros::Subscriber<std_msgs::String> sub("head_waist_motor_cmd", commandfromHMD );
+ros::Subscriber<std_msgs::Float32MultiArray> sub("head_waist_motor_cmd", &commandfromHMD );
 
+ros::Publisher feedback("Head_Feedback", &vec6_msg);
 
-ros::Publisher feedback("Head_Feedback", &str_msg);
 
 //Controller Declare
 #if defined(ARDUINO_OpenCR) // When using official ROBOTIS board with DXL circuit.
@@ -84,9 +104,9 @@ void setup() {
   delay(500);
   // Set up Serial Port >> for Connect with Unity
   Serial.begin(57600);
-   //while(!Serial);
-   delay(500);
-Serial.println("Serial Port Started at 115200");
+  //while(!Serial);
+  delay(500);
+  Serial.println("Serial Port Started at 115200");
 
 
   // Set Port baudrate to 1M. This has to match with DYNAMIXEL baudrate.
@@ -94,7 +114,7 @@ Serial.println("Serial Port Started at 115200");
 
   // Set Port Protocol Version. This has to match with DYNAMIXEL protocol version.
   dxl.setPortProtocolVersion(DXL_PROTOCOL_VERSION);
- delay(20);
+  delay(20);
   //Define pin mode
   pinMode(led_pin_user[0], OUTPUT);
   pinMode(led_pin_user[1], OUTPUT);
@@ -124,8 +144,8 @@ Serial.println("Serial Port Started at 115200");
   // Control Center.
   tic.exitSafeStart();
 
-   tic.setTargetPosition(-10000);
-   waitForPosition(-10000);
+  tic.setTargetPosition(-10000);
+  waitForPosition(-10000);
 
 
   tic.haltAndSetPosition(0);
@@ -138,9 +158,9 @@ int z = 0;
 
 void loop()
 {
-  limitCheck(); // check limit switches >> turn motor torque off until sw1 is press and limit is not pressed. // not tested yet
+  //limitCheck(); // check limit switches >> turn motor torque off until sw1 is press and limit is not pressed. // not tested yet
 
-  
+
 
   if (stringComplete)
   {
@@ -152,8 +172,8 @@ void loop()
       // Direct motor input
       Spliter();
       //control Motor (Servo)
-     // dxl.setGoalPosition(1, OutPut[1].toInt());
-     // dxl.setGoalPosition(2, OutPut[2].toInt()); // off control of flexion and LB
+      // dxl.setGoalPosition(1, OutPut[1].toInt());
+      // dxl.setGoalPosition(2, OutPut[2].toInt()); // off control of flexion and LB
       dxl.setGoalPosition(3, OutPut[3].toInt());
       dxl.setGoalPosition(4, OutPut[4].toInt());
       dxl.setGoalPosition(5, OutPut[5].toInt());
@@ -162,7 +182,7 @@ void loop()
       z = map(OutPut[6].toInt(), 0, 1023, 0, 3000);
       tic.setTargetPosition(z);
 
-    }
+    }/*
     if (inputString[0] == 'U' && inputString[inputString.length() - 1 ] == 'F') //Check if Headder and Tail are correct then read and process the entire protocal
     {
       //Do Flexion then lateral bending [not test yet]
@@ -178,9 +198,9 @@ void loop()
       int m1_present_position = 0;
       int m2_present_position = 0;
       int FAngle =  map(OutPut[1].toInt(), 0, 1023, 0, 300);
-     // int LBAngle = map(OutPut[2].toInt(), 0, 1023, 0, 300);
+      // int LBAngle = map(OutPut[2].toInt(), 0, 1023, 0, 300);
       //Flexion
-      int FAngleM =  (FAngle-150)*-1; // minus side
+      int FAngleM =  (FAngle - 150) * -1; // minus side
       int OP1 =  map(FAngle - FAngleM, 0, 300, 0, 1023);
       dxl.setGoalPosition(1, OutPut[1].toInt());
       dxl.setGoalPosition(2, OP1);
@@ -189,9 +209,9 @@ void loop()
       {
         m1_present_position = dxl.getPresentPosition(1);
         m2_present_position = dxl.getPresentPosition(2);
-        
+
       }
-      
+
       //Lateral Bending
       dxl.setGoalPosition(1, OutPut[2].toInt());
       //dxl.setGoalPosition(2, OutPut[2].toInt());
@@ -200,7 +220,7 @@ void loop()
       {
         m1_present_position = dxl.getPresentPosition(1);
         //m2_present_position = dxl.getPresentPosition(2);
-        
+
       }
 
 
@@ -221,13 +241,13 @@ void loop()
       //Extract Output Value [1] == Flexion [2] == Lateral Bending
       int flexAngle = map(OutPut[1].toInt(), 0, 1023, 0, 300);
       int latAngle = map(OutPut[2].toInt(), 0, 1023, 0, 300);
-      
-      
-      int M1 = 2*flexAngle + latAngle;
-      int M2 = 2*flexAngle - latAngle;
+
+
+      int M1 = 2 * flexAngle + latAngle;
+      int M2 = 2 * flexAngle - latAngle;
       // M1, M2 must not exceed limited of the motor
       // Need to test for a relative motion.
-      
+
       //apply to motor
       dxl.setGoalPosition(1, M1, UNIT_DEGREE);
       dxl.setGoalPosition(2, M2, UNIT_DEGREE);
@@ -235,13 +255,13 @@ void loop()
 
     }
 
-    
+
     if (inputString[0] == 'T') //Check if Headder and Tail are correct then read and process the entire protocal
     {
       Serial.println(tic.getErrorsOccurred());
-        tic.clearDriverError();
+      tic.clearDriverError();
 
-    }
+    }*/
 
 
     // clear the string:
@@ -261,9 +281,10 @@ void loop()
   */
   resetCommandTimeout();
   //////////////////////////////// test ros node
-  if (ROSFlag == false)str_msg.data = "Node standby";
-  else ROSFlag = false;
-  feedback.publish( &str_msg );
+  
+ // if (ROSFlag == false)vec6_msg.data =  a ;
+ // else ROSFlag = false;
+  feedback.publish( &vec6_msg );
   nh.spinOnce();
   delay(10);
 }
@@ -291,34 +312,34 @@ void limitCheck()
   if (limitTop == LOW)
   {
     LEDOn(2);
-    while(true)
+    while (true)
     {
       // clear input if limit is detected
       inputString = "";
       stringComplete = false;
-       //
+      //
       // off motor torque
       dxl.torqueOff(1);
       dxl.torqueOff(2);
       //
 
       // check button 1 (onboard "Push sw1") and limit switch
-      if( (digitalRead(BDPIN_PUSH_SW_1) == HIGH) && (limitTop == HIGH) )
+      if ( (digitalRead(BDPIN_PUSH_SW_1) == HIGH) && (limitTop == HIGH) )
       {
-         LEDOn(2);
-         dxl.torqueOn(1);
-         dxl.torqueOn(2);
+        LEDOn(2);
+        dxl.torqueOn(1);
+        dxl.torqueOn(2);
 
         break;
       }
-      
+
     }
 
-    
-  }else if (limitBot == LOW)
+
+  } else if (limitBot == LOW)
   {
     LEDOn(3);
-    while(true)
+    while (true)
     {
       // clear input if limit is detected
       inputString = "";
@@ -330,20 +351,20 @@ void limitCheck()
       //
 
       // check button 1 (onboard "Push sw1") and limit switch
-      if( (digitalRead(BDPIN_PUSH_SW_1) == HIGH) && (limitBot == HIGH) )
+      if ( (digitalRead(BDPIN_PUSH_SW_1) == HIGH) && (limitBot == HIGH) )
       {
-         LEDOn(3);
-         dxl.torqueOn(1);
-         dxl.torqueOn(2);
+        LEDOn(3);
+        dxl.torqueOn(1);
+        dxl.torqueOn(2);
 
         break;
       }
-      
+
     }
-    
+
   }
 
-  
+
 }
 
 
@@ -437,7 +458,7 @@ void LEDRun()
 }
 
 /*
-void serialEvent() {
+  void serialEvent() {
 
   while (Serial.available()) {
     // get the new byte:
@@ -451,7 +472,7 @@ void serialEvent() {
       // Serial.flush();
     }
   }
-}
+  }
 */
 
 
@@ -473,7 +494,7 @@ void Spliter()
 
 void sound1()
 {
-   for (int thisNote = 0; thisNote < 8; thisNote++) {
+  for (int thisNote = 0; thisNote < 8; thisNote++) {
 
     // to calculate the note duration, take one second
     // divided by the note type.
