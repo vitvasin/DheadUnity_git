@@ -102,7 +102,8 @@ Serial.println("Serial Port Started at 115200");
   pinMode(led_pin_user[3], OUTPUT);
   pinMode(limitTop, INPUT_PULLUP);
   pinMode(limitBot, INPUT_PULLUP);
-
+  pinMode(BDPIN_PUSH_SW_1, INPUT);
+  pinMode(BDPIN_PUSH_SW_2, INPUT);
   // initialize Servo
   initializeServo();
 
@@ -137,6 +138,9 @@ int z = 0;
 
 void loop()
 {
+  limitCheck(); // check limit switches >> turn motor torque off until sw1 is press and limit is not pressed. // not tested yet
+
+  
 
   if (stringComplete)
   {
@@ -282,7 +286,65 @@ void initializeServo()
 
 }
 
+void limitCheck()
+{
+  if (limitTop == LOW)
+  {
+    LEDOn(2);
+    while(true)
+    {
+      // clear input if limit is detected
+      inputString = "";
+      stringComplete = false;
+       //
+      // off motor torque
+      dxl.torqueOff(1);
+      dxl.torqueOff(2);
+      //
 
+      // check button 1 (onboard "Push sw1") and limit switch
+      if( (digitalRead(BDPIN_PUSH_SW_1) == HIGH) && (limitTop == HIGH) )
+      {
+         LEDOn(2);
+         dxl.torqueOn(1);
+         dxl.torqueOn(2);
+
+        break;
+      }
+      
+    }
+
+    
+  }else if (limitBot == LOW)
+  {
+    LEDOn(3);
+    while(true)
+    {
+      // clear input if limit is detected
+      inputString = "";
+      stringComplete = false;
+      //
+      // off motor torque
+      dxl.torqueOff(1);
+      dxl.torqueOff(2);
+      //
+
+      // check button 1 (onboard "Push sw1") and limit switch
+      if( (digitalRead(BDPIN_PUSH_SW_1) == HIGH) && (limitBot == HIGH) )
+      {
+         LEDOn(3);
+         dxl.torqueOn(1);
+         dxl.torqueOn(2);
+
+        break;
+      }
+      
+    }
+    
+  }
+
+  
+}
 
 
 
