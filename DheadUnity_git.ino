@@ -152,8 +152,8 @@ void loop()
       // Direct motor input
       Spliter();
       //control Motor (Servo)
-      dxl.setGoalPosition(1, OutPut[1].toInt());
-      dxl.setGoalPosition(2, OutPut[2].toInt());
+     // dxl.setGoalPosition(1, OutPut[1].toInt());
+     // dxl.setGoalPosition(2, OutPut[2].toInt()); // off control of flexion and LB
       dxl.setGoalPosition(3, OutPut[3].toInt());
       dxl.setGoalPosition(4, OutPut[4].toInt());
       dxl.setGoalPosition(5, OutPut[5].toInt());
@@ -271,7 +271,7 @@ void loop()
 void initializeServo()
 {
   // initialize
-  for (int i = 1; i <= 5 ; i++)
+  for (int i = 3; i <= 5 ; i++)
   {
 
     // Turn off torque when configuring items in EEPROM area
