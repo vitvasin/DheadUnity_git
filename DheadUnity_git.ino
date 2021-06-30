@@ -194,12 +194,12 @@ void loop()
       
       //Lateral Bending
       dxl.setGoalPosition(1, OutPut[2].toInt());
-      dxl.setGoalPosition(2, OutPut[2].toInt());
+      //dxl.setGoalPosition(2, OutPut[2].toInt());
       //Wait for finished Lateral Bending Motion
-      while (abs(OutPut[2].toInt() - m1_present_position) > 1 && abs(OutPut[2].toInt() - m2_present_position) > 1)
+      while (abs(OutPut[2].toInt() - m1_present_position) > 1)
       {
         m1_present_position = dxl.getPresentPosition(1);
-        m2_present_position = dxl.getPresentPosition(2);
+        //m2_present_position = dxl.getPresentPosition(2);
         
       }
 
