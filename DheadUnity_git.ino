@@ -159,10 +159,26 @@ void setup() {
   pinMode(limitBot, INPUT_PULLUP);
   pinMode(BDPIN_PUSH_SW_1, INPUT);
   pinMode(BDPIN_PUSH_SW_2, INPUT);
+
+  
+  while (1) // make sure volatage is apply before initializing
+  {
+    if (dxl.readControlTableItem(PRESENT_VOLTAGE, 3) >= 100)
+    {
+      break;
+    }
+    else
+    {
+      LEDOn(1);
+      LEDOn(3);
+      delay(100);
+    }
+  }
   // initialize Servo
   initializeServo();
 
   LEDRun();
+
 
   // Give the Tic some time to start up.
   delay(20);
@@ -217,7 +233,7 @@ void loop()
       int fe = map(rel_FE_Angle, 0, 300, 0, 1023);
       int lb = map(rel_LB_Angle, 0, 300, 0, 1023);
       int feM = map(rel_FE_Angle, 0, 300, 1023, 0);
-      
+
       int m1_present_position = 0;
       int m2_present_position = 0;
       dxl.setGoalPosition(1, fe);
