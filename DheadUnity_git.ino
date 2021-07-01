@@ -1,3 +1,4 @@
+//rev3- This version adjust parameter with JOI unity code
 //Library declare
 #include <Dynamixel2Arduino.h>
 #include <Tic.h>
@@ -18,31 +19,54 @@ String inputString = "";
 float inputVector[6];
 bool stringComplete = false;
 float a[6] = {0.1,0.2,0.3,0.4,0.5,0.6};
+int oroll,opitch,oyaw;
+float initial_z =0.0, prev_z = 0.0 ,relative_z =0.0;
+int z = 0,Zgain =10;
 void commandfromHMD( const std_msgs::Float32MultiArray& msg)
 {
+
   ROSFlag = true;
   vec6_msg = msg;
-  inputVector[0] = msg.data[0];
-  inputVector[1] = msg.data[1];
-  inputVector[2] = msg.data[2];
-  inputVector[3] = msg.data[3];
-  inputVector[4] = msg.data[4];
-  inputVector[5] = msg.data[5];
   vec6_msg.data = msg.data;
-  /*//Head posture information
-    　Message.data[0] = Camera.transform.position.x;
-      Message.data[1] = Camera.transform.position.y;
-      Message.data[2] = Camera.transform.position.z;
-     //Head posture information
-             Message.data[3] = Camera.transform.eulerAngles.x;
-             Message.data[4] = Camera.transform.eulerAngles.y;
-             Message.data[5] = Camera.transform.eulerAngles.z;
-  */
+  inputVector[0] = msg.data[0]; // Camera.transform.position.x;
+  inputVector[1] = msg.data[1]; //Camera.transform.position.y;
+  inputVector[2] = msg.data[2]; //Camera.transform.position.z;
+  inputVector[3] = msg.data[3]; // pitch Camera.transform.eulerAngles.x
+  inputVector[4] = msg.data[4]; //yaw  Camera.transform.eulerAngles.y
+  inputVector[5] = msg.data[5]; // roll Camera.transform.eulerAngles.z
+  
+  //Assign initial z
+  initial_z = abs(inputVector[2])*Zgain;
+  relative_z = initial_z ;//- prev_z;
+  z = map(abs(inputVector[1])*10*Zgain, 0,100 , 0, 3000); // test with S20-15-30-B need to adjust when change
+  
+  // map angle from 0-360 to 0 to 180, 0 to -180
+  if(inputVector[3] > 180) inputVector[3] -= 360.00;
+  if(inputVector[4] > 180) inputVector[4] -= 360.00;
+  if(inputVector[5] > 180) inputVector[5] -= 360.00;
+  
+  // map angle to motor (0 position start from 150)
+   inputVector[3] += 150;
+   inputVector[4] += 150;
+   inputVector[5] += 150;
+   
+  // Convert angle to 0-1023
+  oroll = map(inputVector[5], 0, 300, 1023, 0);
+  opitch = map(inputVector[3], 0, 300, 0, 1023);
+  oyaw = map(inputVector[4], 0, 300, 1023, 0);
+
+
+  vec6_msg.data[2] = z;
+  vec6_msg.data[3] = oroll;
+  vec6_msg.data[4] = opitch;
+  vec6_msg.data[5] = oyaw;
+
+  
   stringComplete = true;
 
 }
 
-ros::Subscriber<std_msgs::Float32MultiArray> sub("head_waist_motor_cmd", &commandfromHMD );
+ros::Subscriber<std_msgs::Float32MultiArray> sub("head_command", &commandfromHMD );
 
 ros::Publisher feedback("Head_Feedback", &vec6_msg);
 
@@ -154,136 +178,35 @@ void setup() {
   sound1();
   Serial.println("initialized");
 }
-int z = 0;
+
 
 void loop()
 {
-  //limitCheck(); // check limit switches >> turn motor torque off until sw1 is press and limit is not pressed. // not tested yet
+  limitCheck(); // check limit switches >> turn motor torque off until sw1 is press and limit is not pressed. // not tested yet
 
 
 
-  if (stringComplete)
+  if (ROSFlag)
   {
-    inputString.trim();
-    LEDController(); // For debug send "on1","on2","on3"
-    //S,512,512,512,512,512,512,F >>>> default command;
-    if (inputString[0] == 'S' && inputString[inputString.length() - 1 ] == 'F') //Check if Headder and Tail are correct then read and process the entire protocal
-    {
-      // Direct motor input
-      Spliter();
+   // LEDController(); // For debug send "on1","on2","on3"
       //control Motor (Servo)
       // dxl.setGoalPosition(1, OutPut[1].toInt());
       // dxl.setGoalPosition(2, OutPut[2].toInt()); // off control of flexion and LB
-      dxl.setGoalPosition(3, OutPut[3].toInt());
-      dxl.setGoalPosition(4, OutPut[4].toInt());
-      dxl.setGoalPosition(5, OutPut[5].toInt());
+      dxl.setGoalPosition(3, oyaw);
+      dxl.setGoalPosition(4, opitch);
+      dxl.setGoalPosition(5, oroll );
+      
       //control Motor (Linear Actuator)
-      //Serial.println(OutPut[6]);
-      z = map(OutPut[6].toInt(), 0, 1023, 0, 3000);
+      
       tic.setTargetPosition(z);
-
-    }/*
-    if (inputString[0] == 'U' && inputString[inputString.length() - 1 ] == 'F') //Check if Headder and Tail are correct then read and process the entire protocal
-    {
-      //Do Flexion then lateral bending [not test yet]
-      Spliter();
-      //control Motor (Servo)
-      dxl.setGoalPosition(3, OutPut[3].toInt());
-      dxl.setGoalPosition(4, OutPut[4].toInt());
-      dxl.setGoalPosition(5, OutPut[5].toInt());
-      //control Motor (Linear Actuator)
-      //Serial.println(OutPut[6]);
-      z = map(OutPut[6].toInt(), 0, 1023, 0, 3000);
-      tic.setTargetPosition(z);
-      int m1_present_position = 0;
-      int m2_present_position = 0;
-      int FAngle =  map(OutPut[1].toInt(), 0, 1023, 0, 300);
-      // int LBAngle = map(OutPut[2].toInt(), 0, 1023, 0, 300);
-      //Flexion
-      int FAngleM =  (FAngle - 150) * -1; // minus side
-      int OP1 =  map(FAngle - FAngleM, 0, 300, 0, 1023);
-      dxl.setGoalPosition(1, OutPut[1].toInt());
-      dxl.setGoalPosition(2, OP1);
-      //Wait for finished flexion motion
-      while (abs(OutPut[1].toInt() - m1_present_position) > 1 && abs(OP1 - m2_present_position) > 1)
-      {
-        m1_present_position = dxl.getPresentPosition(1);
-        m2_present_position = dxl.getPresentPosition(2);
-
-      }
-
-      //Lateral Bending
-      dxl.setGoalPosition(1, OutPut[2].toInt());
-      //dxl.setGoalPosition(2, OutPut[2].toInt());
-      //Wait for finished Lateral Bending Motion
-      while (abs(OutPut[2].toInt() - m1_present_position) > 1)
-      {
-        m1_present_position = dxl.getPresentPosition(1);
-        //m2_present_position = dxl.getPresentPosition(2);
-
-      }
-
-
+      prev_z = initial_z ;
+      
     }
-    if (inputString[0] == 'V' && inputString[inputString.length() - 1 ] == 'F') //Check if Headder and Tail are correct then read and process the entire protocal
-    {
-      //Do flexion and lateral beding at the same time [not test yet]
-      Spliter();
-      //control Motor (Servo)
-      dxl.setGoalPosition(3, OutPut[3].toInt());
-      dxl.setGoalPosition(4, OutPut[4].toInt());
-      dxl.setGoalPosition(5, OutPut[5].toInt());
-      //control Motor (Linear Actuator)
-      //Serial.println(OutPut[6]);
-      z = map(OutPut[6].toInt(), 0, 1023, 0, 3000);
-      tic.setTargetPosition(z);
-
-      //Extract Output Value [1] == Flexion [2] == Lateral Bending
-      int flexAngle = map(OutPut[1].toInt(), 0, 1023, 0, 300);
-      int latAngle = map(OutPut[2].toInt(), 0, 1023, 0, 300);
-
-
-      int M1 = 2 * flexAngle + latAngle;
-      int M2 = 2 * flexAngle - latAngle;
-      // M1, M2 must not exceed limited of the motor
-      // Need to test for a relative motion.
-
-      //apply to motor
-      dxl.setGoalPosition(1, M1, UNIT_DEGREE);
-      dxl.setGoalPosition(2, M2, UNIT_DEGREE);
-
-
-    }
-
-
-    if (inputString[0] == 'T') //Check if Headder and Tail are correct then read and process the entire protocal
-    {
-      Serial.println(tic.getErrorsOccurred());
-      tic.clearDriverError();
-
-    }*/
-
-
-    // clear the string:
+ 
     delay(1);
-
-    inputString = "";
-    stringComplete = false;
-  }
-
-  /*
-    if (millis() - lasttime > 10)
-    {
-      lasttime = millis();
-      // send this every Period (500 ms).
-      resetCommandTimeout();
-    }
-  */
+    ROSFlag = false;
   resetCommandTimeout();
   //////////////////////////////// test ros node
-  
- // if (ROSFlag == false)vec6_msg.data =  a ;
- // else ROSFlag = false;
   feedback.publish( &vec6_msg );
   nh.spinOnce();
   delay(10);
