@@ -3,6 +3,7 @@
 #include <Dynamixel2Arduino.h>
 #include <Tic.h>
 #include "pitches.h"
+#include <math.h>
 // ros library
 #include <ros.h>
 #include <std_msgs/String.h>
@@ -18,11 +19,14 @@ bool ROSFlag = false;
 String inputString = "";
 float inputVector[6];
 bool stringComplete = false;
-float a[6] = {0.1,0.2,0.3,0.4,0.5,0.6};
-int oroll,opitch,oyaw;
-float initial_z =0.0, prev_z = 0.0 ,relative_z =0.0;
-int z = 0,Zgain =10;
-void commandfromHMD( const std_msgs::Float32MultiArray& msg)
+float a[6] = {0.1, 0.2, 0.3, 0.4, 0.5, 0.6};
+int oroll, opitch, oyaw;
+float initial_z = 0.0, prev_z = 0.0 , relative_z = 0.0;
+int z = 0, Zgain = 10;
+float desired_FE_Angle = 0.0, desired_LB_Angle = 0.0, rel_LB_Angle;
+float current_FE_Angle = 0.0, current_LB_Angle = 0.0, rel_FE_Angle;
+int mode = 0;
+void commandfromHMD( const std_msgs::Float32MultiArray& msg) // ROS receiver TOPIC>> head_command
 {
 
   ROSFlag = true;
@@ -34,22 +38,29 @@ void commandfromHMD( const std_msgs::Float32MultiArray& msg)
   inputVector[3] = msg.data[3]; // pitch Camera.transform.eulerAngles.x
   inputVector[4] = msg.data[4]; //yaw  Camera.transform.eulerAngles.y
   inputVector[5] = msg.data[5]; // roll Camera.transform.eulerAngles.z
-  
+
+  //calculate Flexion/Extension 0.05 ms
+  desired_FE_Angle = atan2(inputVector[1], inputVector[0]) * 180 / 3.14 ; //atan y/x
+  desired_LB_Angle = atan2(inputVector[1], inputVector[2]) * 180 / 3.14 ; //atan y/z
+
+  rel_FE_Angle = desired_FE_Angle - current_FE_Angle;
+  rel_LB_Angle = desired_LB_Angle - current_LB_Angle;
+
   //Assign initial z
-  initial_z = abs(inputVector[2])*Zgain;
-  relative_z = initial_z ;//- prev_z;
-  z = map(abs(inputVector[1])*10*Zgain, 0,100 , 0, 3000); // test with S20-15-30-B need to adjust when change
-  
+  //  initial_z = abs(inputVector[2])*Zgain;
+  //  relative_z = initial_z ;//- prev_z;
+  z = map(abs(inputVector[1]) * 10 * Zgain, 0, 100 , 0, 3000); // test with S20-15-30-B need to adjust when change //Height
+
   // map angle from 0-360 to 0 to 180, 0 to -180
-  if(inputVector[3] > 180) inputVector[3] -= 360.00;
-  if(inputVector[4] > 180) inputVector[4] -= 360.00;
-  if(inputVector[5] > 180) inputVector[5] -= 360.00;
-  
+  if (inputVector[3] > 180) inputVector[3] -= 360.00;
+  if (inputVector[4] > 180) inputVector[4] -= 360.00;
+  if (inputVector[5] > 180) inputVector[5] -= 360.00;
+
   // map angle to motor (0 position start from 150)
-   inputVector[3] += 150;
-   inputVector[4] += 150;
-   inputVector[5] += 150;
-   
+  inputVector[3] += 150;
+  inputVector[4] += 150;
+  inputVector[5] += 150;
+
   // Convert angle to 0-1023
   oroll = map(inputVector[5], 0, 300, 1023, 0);
   opitch = map(inputVector[3], 0, 300, 0, 1023);
@@ -61,7 +72,7 @@ void commandfromHMD( const std_msgs::Float32MultiArray& msg)
   vec6_msg.data[4] = opitch;
   vec6_msg.data[5] = oyaw;
 
-  
+
   stringComplete = true;
 
 }
@@ -188,23 +199,73 @@ void loop()
 
   if (ROSFlag)
   {
-   // LEDController(); // For debug send "on1","on2","on3"
-      //control Motor (Servo)
-      // dxl.setGoalPosition(1, OutPut[1].toInt());
-      // dxl.setGoalPosition(2, OutPut[2].toInt()); // off control of flexion and LB
-      dxl.setGoalPosition(3, oyaw);
-      dxl.setGoalPosition(4, opitch);
-      dxl.setGoalPosition(5, oroll );
+    // LEDController(); // For debug send "on1","on2","on3"
+    //control Motor (Servo)
+    // dxl.setGoalPosition(1, OutPut[1].toInt());
+    // dxl.setGoalPosition(2, OutPut[2].toInt()); // off control of flexion and LB
+    dxl.setGoalPosition(3, oyaw);
+    dxl.setGoalPosition(4, opitch);
+    dxl.setGoalPosition(5, oroll );
+
+    //control Motor (Linear Actuator)
+    tic.setTargetPosition(z);
+
+    if (mode == 1) // FE then LB
+    {
+      rel_FE_Angle += 150;
+      rel_LB_Angle += 150;
+      int fe = map(rel_FE_Angle, 0, 300, 0, 1023);
+      int lb = map(rel_LB_Angle, 0, 300, 0, 1023);
+      int feM = map(rel_FE_Angle, 0, 300, 1023, 0);
       
-      //control Motor (Linear Actuator)
-      
-      tic.setTargetPosition(z);
-      prev_z = initial_z ;
-      
+      int m1_present_position = 0;
+      int m2_present_position = 0;
+      dxl.setGoalPosition(1, fe);
+      dxl.setGoalPosition(2, feM);
+
+      while (abs(fe - m1_present_position) > 1 ) // wait until motor reach goal
+      {
+        m1_present_position = dxl.getPresentPosition(1);
+        //m2_present_position = dxl.getPresentPosition(2);
+      }
+
+      dxl.setGoalPosition(1, lb);
+      while (abs(lb - m1_present_position) > 1 ) // wait until motor reach goal
+      {
+        m1_present_position = dxl.getPresentPosition(1);
+        // m2_present_position = dxl.getPresentPosition(2);
+      }
+
+
+
+    } else if (mode == 2) //do both simultaneously
+    {
+
+      int M1 = (2 * rel_FE_Angle + rel_LB_Angle) + 150;
+      int M2 = (2 * rel_FE_Angle - rel_LB_Angle) + 150;
+      // M1, M2 must not exceed limited of the motor
+      // Need to test for a relative motion.
+
+      //apply to motor
+      dxl.setGoalPosition(1, M1, UNIT_DEGREE);
+      dxl.setGoalPosition(2, M2, UNIT_DEGREE);
+
     }
- 
-    delay(1);
-    ROSFlag = false;
+    else
+    {
+      //do notthing
+    }
+
+
+    //store previous value as current
+    current_FE_Angle = desired_FE_Angle;
+    current_LB_Angle = desired_LB_Angle;
+    prev_z = initial_z ;
+
+  }
+
+  delay(1);
+  ROSFlag = false;
   resetCommandTimeout();
   //////////////////////////////// test ros node
   feedback.publish( &vec6_msg );
@@ -214,6 +275,13 @@ void loop()
 
 void initializeServo()
 {
+  // Turn off torque when configuring items in EEPROM area
+  dxl.torqueOff(1);
+  dxl.setOperatingMode(1, OP_POSITION);
+  dxl.torqueOn(1);
+  dxl.torqueOff(2);
+  dxl.setOperatingMode(2, OP_POSITION);
+  dxl.torqueOn(2);
   // initialize
   for (int i = 3; i <= 5 ; i++)
   {
@@ -379,24 +447,6 @@ void LEDRun()
     delay(100);
   }
 }
-
-/*
-  void serialEvent() {
-
-  while (Serial.available()) {
-    // get the new byte:
-    char inChar = (char)Serial.read();
-    // add it to the inputString:
-    inputString += inChar;
-    // if the incoming character is a newline, set a flag so the main loop can
-    // do something about it:
-    if (inChar == '\n') {
-      stringComplete = true;
-      // Serial.flush();
-    }
-  }
-  }
-*/
 
 
 void Spliter()
