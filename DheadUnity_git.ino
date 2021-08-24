@@ -1,9 +1,17 @@
 //rev3- This version adjust parameter with JOI unity code
 //30-7-2021 -rev4- fix reverse pitch angle line 55 >>> swap 0 and 1023
+//18-8-2021 -rev5- add manual calibration function >> home_adj();
+// Need to use sync write >>tested
 //Library declare
 #include <Dynamixel2Arduino.h>
+#include <DynamixelWorkbench.h>
 #include <Tic.h>
 #include "pitches.h"
+
+DynamixelWorkbench dxl_wb;
+int32_t goal_position[2] = {0, 1023};
+const uint8_t handler_index = 0;
+
 // ros library
 #include <ros.h>
 #include <std_msgs/String.h>
@@ -20,7 +28,7 @@ String inputString = "";
 float inputVector[6];
 bool stringComplete = false;
 float a[6] = {0.1, 0.2, 0.3, 0.4, 0.5, 0.6};
-int oroll, opitch, oyaw;
+int oroll, opitch, oyaw,fe,lb;
 float initial_z = 0.0, prev_z = 0.0 , relative_z = 0.0;
 int z = 0, Zgain = 10;
 void commandfromHMD( const std_msgs::Float32MultiArray& msg)
@@ -29,7 +37,7 @@ void commandfromHMD( const std_msgs::Float32MultiArray& msg)
   ROSFlag = true;
   vec6_msg = msg;
   vec6_msg.data = msg.data;
-  inputVector[0] = msg.data[0]; // Camera.transform.position.x;
+  inputVector[0] = msg.data[0]; // flex
   inputVector[1] = msg.data[1]; //Camera.transform.position.y;
   inputVector[2] = msg.data[2]; //Camera.transform.position.z;
   inputVector[3] = msg.data[3]; // pitch Camera.transform.eulerAngles.x
@@ -40,6 +48,11 @@ void commandfromHMD( const std_msgs::Float32MultiArray& msg)
   initial_z = abs(inputVector[2]) * Zgain;
   relative_z = initial_z ;//- prev_z;
   z = map(abs(inputVector[1]) * 10 * Zgain, 0, 100 , 0, 3000); // test with S20-15-30-B need to adjust when change
+//
+fe = inputVector[0];
+lb = inputVector[2];
+
+
 
   // map angle from 0-360 to 0 to 180, 0 to -180
   if (inputVector[3] > 180) inputVector[3] -= 360.00;
@@ -56,7 +69,9 @@ void commandfromHMD( const std_msgs::Float32MultiArray& msg)
   opitch = map(inputVector[3], 0, 300, 1023, 0);
   oyaw = map(inputVector[4], 0, 300, 1023, 0);
 
-
+  
+  vec6_msg.data[0] = fe;
+  vec6_msg.data[1] =lb;
   vec6_msg.data[2] = z;
   vec6_msg.data[3] = oroll;
   vec6_msg.data[4] = opitch;
@@ -95,6 +110,7 @@ const uint8_t DXL_ID = 1;
 const float DXL_PROTOCOL_VERSION = 1.0;
 //initialize dynamixel motor
 Dynamixel2Arduino dxl(DXL_SERIAL, DXL_DIR_PIN);
+ParamForSyncWriteInst_t sync_write_param;
 
 //initialize Tic
 TicI2C tic;
@@ -149,6 +165,22 @@ void setup() {
   pinMode(limitBot, INPUT_PULLUP);
   pinMode(BDPIN_PUSH_SW_1, INPUT);
   pinMode(BDPIN_PUSH_SW_2, INPUT);
+  pinMode(BDPIN_DIP_SW_1, INPUT);
+  pinMode(BDPIN_DIP_SW_2, INPUT);
+  ////////////////////////////////////////////////////
+
+  sync_write_param.addr = 30; //Goal position of DYNAMIXEL-AX series
+  sync_write_param.length = 2;
+  sync_write_param.xel[0].id = 1;
+  sync_write_param.xel[1].id = 2;
+  sync_write_param.id_count = 2;
+
+
+
+
+
+
+
   // initialize Servo
   initializeServo();
 
@@ -170,7 +202,7 @@ void setup() {
   tic.exitSafeStart();
 
   tic.setTargetPosition(-10000);
-  //  waitForPosition(-10000);
+  waitForPosition(-10000);
 
 
   tic.haltAndSetPosition(0);
@@ -184,7 +216,7 @@ void setup() {
 void loop()
 {
   limitCheck(); // check limit switches >> turn motor torque off until sw1 is press and limit is not pressed. // not tested yet
-
+  home_adj(); // manual calibration from on-board Switch
 
 
   if (ROSFlag)
@@ -193,6 +225,7 @@ void loop()
     //control Motor (Servo)
     // dxl.setGoalPosition(1, OutPut[1].toInt());
     // dxl.setGoalPosition(2, OutPut[2].toInt()); // off control of flexion and LB
+    waisttoMotor(fe,lb);
     dxl.setGoalPosition(3, oyaw);
     dxl.setGoalPosition(4, opitch);
     dxl.setGoalPosition(5, oroll );
@@ -204,34 +237,222 @@ void loop()
 
   }
 
-  delay(1);
+  //delay(1);
   ROSFlag = false;
   resetCommandTimeout();
   //////////////////////////////// test ros node
   feedback.publish( &vec6_msg );
   nh.spinOnce();
-  delay(10);
+  delay(1);
 }
 
 void initializeServo()
 {
-  dxl.torqueOn(1);
-  dxl.torqueOn(2);
+  // dxl.torqueOn(1);
+  // dxl.torqueOn(2);
   // initialize
-  for (int i = 3; i <= 5 ; i++)
-  {
+  /*
+    for (int i = 1; i <= 5 ; i++)
+    {
 
     // Turn off torque when configuring items in EEPROM area
     dxl.torqueOff(i);
     dxl.setOperatingMode(i, OP_POSITION);
     dxl.torqueOn(i);
     // Limit the maximum velocity in Position Control Mode. Use 0 for Max speed
-    dxl.writeControlTableItem(PROFILE_VELOCITY, i, 0);
+    //dxl.writeControlTableItem(PROFILE_VELOCITY, i, 30);
+    dxl.writeControlTableItem(MOVING_SPEED, i, 128);
     dxl.setGoalPosition(i, 512); // set zero position of motor Center position(HOME)
     delay(200);
-  }
+    }
+  */
+  dxl.torqueOff(254);
+  dxl.setOperatingMode(254, OP_POSITION);
+  delay(200);
+  dxl.torqueOn(254);
+  dxl.writeControlTableItem(MOVING_SPEED, 254, 400);
+  dxl.setGoalPosition(254, 512); // set zero position of motor Center position(HOME)
+  delay(200);
+  dxl.writeControlTableItem(MOVING_SPEED, 3, 512);
+  dxl.writeControlTableItem(MOVING_SPEED, 4, 512);
+  dxl.writeControlTableItem(MOVING_SPEED, 5, 512);
+  //  int offset_home = 28;
+  //  dxl.setGoalPosition(1, 512 + offset_home); // set zero position of motor Center position(HOME)
+  //  dxl.setGoalPosition(2, 512 + offset_home); // set zero position of motor Center position(HOME)
+  //delay(200);
+  //dxl.setGoalPosition(1, 512); // set zero position of motor Center position(HOME)
 
+//testing
+  //delay(3000);
+  //waisttoMotor(0,0);
 }
+
+void home_adj()
+{
+  static int32_t pos1;
+  static int32_t pos2;
+  int c1 = dxl.getPresentPosition(1);
+  int c2 = dxl.getPresentPosition(2);
+  int adjust_offset = 10;
+  if (digitalRead(BDPIN_DIP_SW_1) == LOW && digitalRead(BDPIN_DIP_SW_2) == LOW) // Lateral setup
+  {
+    if (digitalRead(BDPIN_PUSH_SW_1) == HIGH)
+    {
+      dxl.setGoalPosition(1, c1 + adjust_offset); // set zero position of motor Center position(HOME)
+      dxl.setGoalPosition(2, c2 + adjust_offset); // set zero position of motor Center position(HOME)
+      delay(10);
+    }
+    if (digitalRead(BDPIN_PUSH_SW_2) == HIGH)
+    {
+      dxl.setGoalPosition(1, c1 - adjust_offset); // set zero position of motor Center position(HOME)
+      dxl.setGoalPosition(2, c2 - adjust_offset); // set zero position of motor Center position(HOME)
+      delay(10);
+    }
+  } else if (digitalRead(BDPIN_DIP_SW_1) == LOW && digitalRead(BDPIN_DIP_SW_2) == HIGH)  // FE setup
+  {
+    if (digitalRead(BDPIN_PUSH_SW_1) == HIGH)
+    {
+      dxl.setGoalPosition(1, c1 + adjust_offset); // set zero position of motor Center position(HOME)
+      dxl.setGoalPosition(2, c2 - adjust_offset); // set zero position of motor Center position(HOME)
+
+      delay(10);
+    }
+    if (digitalRead(BDPIN_PUSH_SW_2) == HIGH)
+    {
+      dxl.setGoalPosition(1, c1 - adjust_offset); // set zero position of motor Center position(HOME)
+      dxl.setGoalPosition(2, c2 + adjust_offset); // set zero position of motor Center position(HOME)
+      delay(10);
+    }
+  } else if (digitalRead(BDPIN_DIP_SW_1) == HIGH && digitalRead(BDPIN_DIP_SW_2) == LOW)  // FE setup 45 deg
+  {
+    adjust_offset = map(8, 0, 300, 0, 1023);
+    int c11, c21;
+
+
+    if (digitalRead(BDPIN_PUSH_SW_1) == HIGH)
+    {
+      if (c1 + adjust_offset > 1023)
+      {
+        c11 = 1023;
+      } else c11 = c1 + adjust_offset;
+      if (c2 - adjust_offset < 0)
+      {
+        c21 = 0;
+      } else c21 = c2 - adjust_offset;
+      //pos1 = c11;
+      //pos2 = c21;
+      //pos1 = 1023;
+      //pos2 = 0;
+      //memcpy(sync_write_param.xel[0].data, &pos1, sizeof(pos1));
+      //memcpy(sync_write_param.xel[1].data, &pos2, sizeof(pos2));
+
+      //dxl.syncWrite(sync_write_param);
+      //delay(500);
+      dxl.writeControlTableItem(MOVING_SPEED, 1, 256);
+      dxl.writeControlTableItem(MOVING_SPEED, 2, 256);
+      dxl.setGoalPosition(1, 1023); // set zero position of motor Center position(HOME)
+      //delay(1);
+      dxl.setGoalPosition(2, 0); // set zero position of motor Center position(HOME)
+      delay(3000);
+
+      dxl.setGoalPosition(1, 0); // set zero position of motor Center position(HOME)
+      //delay(1);
+      dxl.setGoalPosition(2, 1023); // set zero position of motor Center position(HOME)
+
+      delay(3000);
+      dxl.setGoalPosition(1, 512); // set zero position of motor Center position(HOME)
+      //delay(1);
+      dxl.setGoalPosition(2, 512); // set zero position of motor Center position(HOME)
+
+
+    }
+    if (digitalRead(BDPIN_PUSH_SW_2) == HIGH)
+    {
+      if (c1 - adjust_offset < 0)
+      {
+        c11 = 0;
+      } else c11 = c1 - adjust_offset;
+      if (c2 + adjust_offset > 1023)
+      {
+        c21 = 1023;
+      } else c21 = c2 + adjust_offset;
+      /*
+        pos1 = c11;
+        pos2 = c21;
+      */
+      /*
+            pos1 = 0;
+            pos2 = 1023;
+            memcpy(sync_write_param.xel[0].data, &pos1, sizeof(pos1));
+            memcpy(sync_write_param.xel[1].data, &pos2, sizeof(pos2));
+            // delay(3000);
+            dxl.syncWrite(sync_write_param);
+            delay(500);*/
+      dxl.writeControlTableItem(MOVING_SPEED, 1, 256);
+      dxl.writeControlTableItem(MOVING_SPEED, 2, 256);
+      dxl.setGoalPosition(1, 1023); // set zero position of motor Center position(HOME)
+      //delay(1);
+      dxl.setGoalPosition(2, 1023); // set zero position of motor Center position(HOME)
+      delay(3000);
+
+      dxl.setGoalPosition(1, 0); // set zero position of motor Center position(HOME)
+      //delay(1);
+      dxl.setGoalPosition(2, 0); // set zero position of motor Center position(HOME)
+
+      delay(3000);
+      dxl.setGoalPosition(1, 512); // set zero position of motor Center position(HOME)
+      //delay(1);
+      dxl.setGoalPosition(2, 512); // set zero position of motor Center position(HOME)
+
+
+
+    }
+
+
+  } else if (digitalRead(BDPIN_DIP_SW_1) == HIGH && digitalRead(BDPIN_DIP_SW_2) == HIGH)
+  {
+    adjust_offset = map(30, 0, 300, 0, 1023);
+    int c11, c21;
+    if (digitalRead(BDPIN_PUSH_SW_1) == HIGH)
+    {
+      if (c1 + adjust_offset > 1023)
+      {
+        c11 = 1023;
+      } else c11 = c1 + adjust_offset;
+      if (c2 + adjust_offset > 1023)
+      {
+        c21 = 1023;
+      } else c21 = c2 + adjust_offset;
+      pos1 = c11;
+      pos2 = c21;
+      memcpy(sync_write_param.xel[0].data, &pos1, sizeof(pos1));
+      memcpy(sync_write_param.xel[1].data, &pos2, sizeof(pos2));
+      // delay(3000);
+      dxl.syncWrite(sync_write_param);
+      delay(500);
+    }
+    if (digitalRead(BDPIN_PUSH_SW_2) == HIGH)
+    {
+      if (c1 - adjust_offset < 0)
+      {
+        c11 = 0;
+      } else c11 = c1 - adjust_offset;
+      if (c2 - adjust_offset < 0)
+      {
+        c21 = 0;
+      } else c21 = c2 - adjust_offset;
+      pos1 = c11;
+      pos2 = c21;
+      memcpy(sync_write_param.xel[0].data, &pos1, sizeof(pos1));
+      memcpy(sync_write_param.xel[1].data, &pos2, sizeof(pos2));
+      // delay(3000);
+      dxl.syncWrite(sync_write_param);
+      delay(500);
+    }
+
+  }
+}
+
 
 void limitCheck()
 {
@@ -293,7 +514,30 @@ void limitCheck()
 
 }
 
+void waisttoMotor(int fe,int lb) //input in angle
+{
+  //fe,lb is the real angle
+  //calculate m1 and m2 angle
+  int m1_angle = (2 * fe - lb)+150; // fe=-90 lb =0 >>m1 =-180
+  int m2_angle = (-1 * (2 * fe + lb))+150;//
 
+//  Serial.println("M1 =" + String(m1_angle)+ ", M2 = " + String(m2_angle));
+  // map value to drive motor
+
+  if(m1_angle>= 300.0) m1_angle =300.0;
+  if(m2_angle>= 300.0) m2_angle = 300.0;
+  if(m2_angle <= 0 ) m2_angle =0.0;
+  if(m1_angle <= 0 ) m1_angle =0.0;
+  int m1_drive = map(m1_angle, 0, 300, 0, 1023);
+  int m2_drive = map(m2_angle, 0, 300, 0, 1023);
+//Serial.println("D1 =" + String(m1_drive) + ", M2 = " + String(m2_drive));
+
+
+
+  dxl.setGoalPosition(1, m1_drive);
+  dxl.setGoalPosition(2, m2_drive);
+
+}
 
 
 
