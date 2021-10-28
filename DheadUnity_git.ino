@@ -16,76 +16,23 @@ const uint8_t handler_index = 0;
 #include <ros.h>
 #include <std_msgs/String.h>
 #include <std_msgs/Float32MultiArray.h>
-
+#include <std_msgs/Int8MultiArray.h>
 ros::NodeHandle nh;
 std_msgs::String str_msg;
 std_msgs::Float32MultiArray vec6_msg;
-
+std_msgs::Int8MultiArray setup_msg;
 
 String rev_msg = "";
 bool ROSFlag = false;
 String inputString = "";
 float inputVector[6];
+float inputSetup[10];
 bool stringComplete = false;
 float a[6] = {0.1, 0.2, 0.3, 0.4, 0.5, 0.6};
 int oroll, opitch, oyaw,fe,lb;
 float initial_z = 0.0, prev_z = 0.0 , relative_z = 0.0;
 int z = 0, Zgain = 10;
-void commandfromHMD( const std_msgs::Float32MultiArray& msg)
-{
-
-  ROSFlag = true;
-  vec6_msg = msg;
-  vec6_msg.data = msg.data;
-  inputVector[0] = msg.data[0]; // flex
-  inputVector[1] = msg.data[1]; //Camera.transform.position.y;
-  inputVector[2] = msg.data[2]; //Camera.transform.position.z;
-  inputVector[3] = msg.data[3]; // pitch Camera.transform.eulerAngles.x
-  inputVector[4] = msg.data[4]; //yaw  Camera.transform.eulerAngles.y
-  inputVector[5] = msg.data[5]; // roll Camera.transform.eulerAngles.z
-
-  //Assign initial z
-  initial_z = abs(inputVector[2]) * Zgain;
-  relative_z = initial_z ;//- prev_z;
-  z = map(abs(inputVector[1]) * 10 * Zgain, 0, 100 , 0, 3000); // test with S20-15-30-B need to adjust when change
-//
-fe = inputVector[0];
-lb = inputVector[2];
-
-
-
-  // map angle from 0-360 to 0 to 180, 0 to -180
-  if (inputVector[3] > 180) inputVector[3] -= 360.00;
-  if (inputVector[4] > 180) inputVector[4] -= 360.00;
-  if (inputVector[5] > 180) inputVector[5] -= 360.00;
-
-  // map angle to motor (0 position start from 150)
-  inputVector[3] += 150;
-  inputVector[4] += 150;
-  inputVector[5] += 150;
-
-  // Convert angle to 0-1023
-  oroll = map(inputVector[5], 0, 300, 1023, 0);
-  opitch = map(inputVector[3], 0, 300, 1023, 0);
-  oyaw = map(inputVector[4], 0, 300, 1023, 0);
-
-  
-  vec6_msg.data[0] = fe;
-  vec6_msg.data[1] =lb;
-  vec6_msg.data[2] = z;
-  vec6_msg.data[3] = oroll;
-  vec6_msg.data[4] = opitch;
-  vec6_msg.data[5] = oyaw;
-
-
-  stringComplete = true;
-
-}
-
-ros::Subscriber<std_msgs::Float32MultiArray> sub("head_command", &commandfromHMD );
-
-ros::Publisher feedback("Head_Feedback", &vec6_msg);
-
+float return_fe=0.0, return_lb =0.0;
 
 //Controller Declare
 #if defined(ARDUINO_OpenCR) // When using official ROBOTIS board with DXL circuit.
@@ -95,16 +42,7 @@ ros::Publisher feedback("Head_Feedback", &vec6_msg);
 //  #define DEBUG_SERIAL Serial
 const uint8_t DXL_DIR_PIN = 84; // OpenCR Board's DIR PIN.
 #endif
-
-// notes in the melody:
-int melody[] = {
-  NOTE_C4, NOTE_G3, NOTE_G3, NOTE_A3, NOTE_G3, 0, NOTE_B3, NOTE_C4
-};
-
-// note durations: 4 = quarter note, 8 = eighth note, etc.:
-int noteDurations[] = {
-  4, 8, 8, 4, 4, 4, 4, 4
-};
+ros::Publisher feedback("Head_Feedback", &vec6_msg);
 
 const uint8_t DXL_ID = 1;
 const float DXL_PROTOCOL_VERSION = 1.0;
@@ -127,6 +65,7 @@ String OutPut[8] = {"", "", "", "", "", "", "", ""};
 //LED variable
 int led_pin_user[4] = { BDPIN_LED_USER_1, BDPIN_LED_USER_2, BDPIN_LED_USER_3, BDPIN_LED_USER_4 };
 bool LEDFlag[4] = {false, false, false, false};
+bool inv_roll=false,inv_pitch=false, inv_yaw=false;
 // Input Variable
 int limitTop = 2, limitBot = 3;
 
@@ -134,11 +73,104 @@ int limitTop = 2, limitBot = 3;
 unsigned long period = 500; //time interval
 unsigned long lasttime = 0; //
 
+int minValue = 0,maxValue =1023;
+
+void commandfromHMD( const std_msgs::Float32MultiArray& msg)
+{
+
+  ROSFlag = true;
+  vec6_msg = msg;
+  vec6_msg.data = msg.data;
+  inputVector[0] = msg.data[0]; // flex
+  inputVector[1] = msg.data[1]; //Camera.transform.position.y;
+  inputVector[2] = msg.data[2]; //Camera.transform.position.z;
+  inputVector[3] = msg.data[3]; // pitch Camera.transform.eulerAngles.x
+  inputVector[4] = msg.data[4]; //yaw  Camera.transform.eulerAngles.y
+  inputVector[5] = msg.data[5]; // roll Camera.transform.eulerAngles.z
+
+  //Assign initial z
+  //initial_z = abs(inputVector[2]) * Zgain;
+  //relative_z = initial_z ;//- prev_z;
+ // z = map(abs(inputVector[1]), 0, 100 , 0, 3000); // test with S20-15-30-B need to adjust when change
+  z = abs(inputVector[1]);
+//
+fe = inputVector[0];
+lb = inputVector[2];
+
+
+
+  // map angle from 0-360 to 0 to 180, 0 to -180
+  if (inputVector[3] > 180) inputVector[3] -= 360.00;
+  if (inputVector[4] > 180) inputVector[4] -= 360.00;
+  if (inputVector[5] > 180) inputVector[5] -= 360.00;
+
+  // map angle to motor (0 position start from 150)
+  inputVector[3] += 150;
+  inputVector[4] += 150;
+  inputVector[5] += 150;
+
+  // Convert angle to 0-1023
+  if(inv_roll == false) oroll = map(inputVector[5], 0, 300, maxValue, 0); else oroll = map(inputVector[5], 0, 300, 0, maxValue);
+  if(inv_pitch == false)opitch = map(inputVector[3], 0, 300, maxValue, 0); else opitch = map(inputVector[3], 0, 300, 0, maxValue);
+  if(inv_yaw == false)oyaw = map(inputVector[4], 0, 300, maxValue, 0); else oyaw = map(inputVector[4], 0, 300, 0, maxValue);
+
+  float m1_r = (dxl.getPresentPosition(1)-512) *0.29;
+  float m2_r = (dxl.getPresentPosition(2)-512) *0.29;
+  //vec6_msg.data[0] = return_fe;//
+  vec6_msg.data[0] = (m1_r-m2_r)/4;
+  vec6_msg.data[1] =  (m1_r+m2_r)/2*-1;
+  
+  //vec6_msg.data[1] = return_lb;//(dxl.getPresentPosition(2)-512) *-0.29;
+  //vec6_msg.data[1] = ((dxl.getPresentPosition(2)-512) *0.29)-(2*fe);
+  vec6_msg.data[2] = (dxl.getPresentPosition(3)-512)*-0.29;
+  vec6_msg.data[3] = (dxl.getPresentPosition(4)-512)*0.29;
+  vec6_msg.data[4] = (dxl.getPresentPosition(5)-512)*-0.29;
+
+  
+  stringComplete = true;
+
+}
+
+
+void setupfromHMD( const std_msgs::Int8MultiArray& st_msg)
+{
+  setup_msg = st_msg;
+  setup_msg.data = st_msg.data;
+  inputSetup[0] = st_msg.data[0]; // roll_inverse
+  inputSetup[1] = st_msg.data[1]; // pitch_inverse
+  inputSetup[2] = st_msg.data[2]; // yaw_inverse
+
+  if(inputSetup[0] >= 1) inv_roll = true;
+  else inv_roll = false;
+  if(inputSetup[1] >= 1) inv_pitch = true;
+  else inv_pitch = false;
+  if(inputSetup[2] >= 1) inv_yaw = true;
+  else inv_yaw = false;
+  
+  
+}
+
+ros::Subscriber<std_msgs::Float32MultiArray> sub("head_command", &commandfromHMD );
+
+ros::Subscriber<std_msgs::Int8MultiArray> sub2("head_setup", &setupfromHMD );
+
+// notes in the melody:
+int melody[] = {
+  NOTE_C4, NOTE_G3, NOTE_G3, NOTE_A3, NOTE_G3, 0, NOTE_B3, NOTE_C4
+};
+
+// note durations: 4 = quarter note, 8 = eighth note, etc.:
+int noteDurations[] = {
+  4, 8, 8, 4, 4, 4, 4, 4
+};
+
+
 void setup() {
 
   nh.initNode();
   nh.advertise(feedback);
   nh.subscribe(sub);
+  nh.subscribe(sub2);
   // Set up I2C. >> for Tic
   Wire.begin();
   Wire.setClock(400000);
@@ -163,6 +195,7 @@ void setup() {
   pinMode(led_pin_user[3], OUTPUT);
   pinMode(limitTop, INPUT_PULLUP);
   pinMode(limitBot, INPUT_PULLUP);
+  pinMode(BDPIN_GPIO_18,INPUT_PULLUP);
   pinMode(BDPIN_PUSH_SW_1, INPUT);
   pinMode(BDPIN_PUSH_SW_2, INPUT);
   pinMode(BDPIN_DIP_SW_1, INPUT);
@@ -174,7 +207,7 @@ void setup() {
   sync_write_param.xel[0].id = 1;
   sync_write_param.xel[1].id = 2;
   sync_write_param.id_count = 2;
-
+  dxl.writeControlTableItem(RETURN_DELAY_TIME,254,0);
 
 
 
@@ -215,36 +248,48 @@ void setup() {
 
 void loop()
 {
-  limitCheck(); // check limit switches >> turn motor torque off until sw1 is press and limit is not pressed. // not tested yet
+  //limitCheck(); // check limit switches >> turn motor torque off until sw1 is press and limit is not pressed. // not tested yet
   home_adj(); // manual calibration from on-board Switch
-
+  KILLSW();
 
   if (ROSFlag)
   {
-    // LEDController(); // For debug send "on1","on2","on3"
-    //control Motor (Servo)
-    // dxl.setGoalPosition(1, OutPut[1].toInt());
-    // dxl.setGoalPosition(2, OutPut[2].toInt()); // off control of flexion and LB
+
     waisttoMotor(fe,lb);
     dxl.setGoalPosition(3, oyaw);
     dxl.setGoalPosition(4, opitch);
     dxl.setGoalPosition(5, oroll );
-
     //control Motor (Linear Actuator)
-
     tic.setTargetPosition(z);
-    prev_z = initial_z ;
-
+   // prev_z = initial_z ;
+   // readEncoder();
+   
+  
   }
-
+  feedback.publish( &vec6_msg );
   //delay(1);
   ROSFlag = false;
   resetCommandTimeout();
   //////////////////////////////// test ros node
-  feedback.publish( &vec6_msg );
   nh.spinOnce();
   delay(1);
 }
+
+
+void readEncoder()
+{
+  //float[] mtr_angle[6];
+  vec6_msg.data[0] = return_fe;//dxl.getPresentPosition(1);
+  vec6_msg.data[1] = return_lb;//dxl.getPresentPosition(2);
+  vec6_msg.data[2] = dxl.getPresentPosition(3);
+  vec6_msg.data[3] = dxl.getPresentPosition(4);
+  vec6_msg.data[4] = dxl.getPresentPosition(5);
+ // mtr_angle[5] = dxl.getPresentPosition(1);
+  feedback.publish( &vec6_msg );
+}
+
+
+
 
 void initializeServo()
 {
@@ -270,22 +315,29 @@ void initializeServo()
   dxl.setOperatingMode(254, OP_POSITION);
   delay(200);
   dxl.torqueOn(254);
-  dxl.writeControlTableItem(MOVING_SPEED, 254, 400);
+  dxl.writeControlTableItem(MOVING_SPEED, 254, 50);
   dxl.setGoalPosition(254, 512); // set zero position of motor Center position(HOME)
-  delay(200);
-  dxl.writeControlTableItem(MOVING_SPEED, 3, 512);
-  dxl.writeControlTableItem(MOVING_SPEED, 4, 512);
-  dxl.writeControlTableItem(MOVING_SPEED, 5, 512);
-  //  int offset_home = 28;
-  //  dxl.setGoalPosition(1, 512 + offset_home); // set zero position of motor Center position(HOME)
-  //  dxl.setGoalPosition(2, 512 + offset_home); // set zero position of motor Center position(HOME)
-  //delay(200);
-  //dxl.setGoalPosition(1, 512); // set zero position of motor Center position(HOME)
-
-//testing
-  //delay(3000);
-  //waisttoMotor(0,0);
+  delay(5000);
+  dxl.writeControlTableItem(MOVING_SPEED, 3, 800);
+  dxl.writeControlTableItem(MOVING_SPEED, 4, 800);
+  dxl.writeControlTableItem(MOVING_SPEED, 5, 800);
+  waisttoMotor(0,0);
 }
+
+void KILLSW()
+{
+  if(digitalRead(BDPIN_GPIO_18) == HIGH)
+  {
+    
+    dxl.torqueOff(254);
+    dxl.ledOn(254);
+    while(1)
+    {
+      Serial.println("EMERTRIGGER please restart");
+    }
+  }
+}
+
 
 void home_adj()
 {
@@ -348,23 +400,38 @@ void home_adj()
 
       //dxl.syncWrite(sync_write_param);
       //delay(500);
-      dxl.writeControlTableItem(MOVING_SPEED, 1, 256);
-      dxl.writeControlTableItem(MOVING_SPEED, 2, 256);
+      dxl.writeControlTableItem(MOVING_SPEED, 1, 50);
+      dxl.writeControlTableItem(MOVING_SPEED, 2, 50);
+      /*
+       * 
       dxl.setGoalPosition(1, 1023); // set zero position of motor Center position(HOME)
       //delay(1);
       dxl.setGoalPosition(2, 0); // set zero position of motor Center position(HOME)
-      delay(3000);
-
+      delay(5000);
       dxl.setGoalPosition(1, 0); // set zero position of motor Center position(HOME)
       //delay(1);
       dxl.setGoalPosition(2, 1023); // set zero position of motor Center position(HOME)
-
-      delay(3000);
-      dxl.setGoalPosition(1, 512); // set zero position of motor Center position(HOME)
-      //delay(1);
-      dxl.setGoalPosition(2, 512); // set zero position of motor Center position(HOME)
-
-
+      delay(5000);
+      */
+      
+      waisttoMotor(-90,0);
+      delay(7000);
+      waisttoMotor(90,0);
+      delay(13000);
+       waisttoMotor(0,0);
+      
+    /*
+      dxl.setGoalPosition(1, 1023);
+      dxl.setGoalPosition(2, 0);
+      delay(7000);
+      dxl.setGoalPosition(1, 0);
+      dxl.setGoalPosition(2, 1023);
+      delay(13000);
+      dxl.setGoalPosition(1, 512);
+      dxl.setGoalPosition(2, 512);
+      dxl.writeControlTableItem(MOVING_SPEED, 1, 128);
+      dxl.writeControlTableItem(MOVING_SPEED, 2, 128);
+    */
     }
     if (digitalRead(BDPIN_PUSH_SW_2) == HIGH)
     {
@@ -388,24 +455,18 @@ void home_adj()
             // delay(3000);
             dxl.syncWrite(sync_write_param);
             delay(500);*/
-      dxl.writeControlTableItem(MOVING_SPEED, 1, 256);
-      dxl.writeControlTableItem(MOVING_SPEED, 2, 256);
-      dxl.setGoalPosition(1, 1023); // set zero position of motor Center position(HOME)
-      //delay(1);
-      dxl.setGoalPosition(2, 1023); // set zero position of motor Center position(HOME)
-      delay(3000);
-
-      dxl.setGoalPosition(1, 0); // set zero position of motor Center position(HOME)
-      //delay(1);
-      dxl.setGoalPosition(2, 0); // set zero position of motor Center position(HOME)
-
-      delay(3000);
-      dxl.setGoalPosition(1, 512); // set zero position of motor Center position(HOME)
-      //delay(1);
-      dxl.setGoalPosition(2, 512); // set zero position of motor Center position(HOME)
+      dxl.writeControlTableItem(MOVING_SPEED, 1, 50);
+      dxl.writeControlTableItem(MOVING_SPEED, 2, 50);
+      
+      waisttoMotor(0,-90);
+      delay(10000);
+      waisttoMotor(0,90);
+      delay(10000);
+       waisttoMotor(0,0);
 
 
-
+      dxl.writeControlTableItem(MOVING_SPEED, 1, 128);
+      dxl.writeControlTableItem(MOVING_SPEED, 2, 128);
     }
 
 
@@ -518,9 +579,10 @@ void waisttoMotor(int fe,int lb) //input in angle
 {
   //fe,lb is the real angle
   //calculate m1 and m2 angle
-  int m1_angle = (2 * fe - lb)+150; // fe=-90 lb =0 >>m1 =-180
-  int m2_angle = (-1 * (2 * fe + lb))+150;//
-
+  int m1_angle = (2*fe - lb)+150; // fe=-90 lb =0 >>m1 =-180
+  int m2_angle = (-1 * (2*fe + lb))+150;//
+  return_fe = (m1_angle -150+lb)/2;
+  return_lb = ((m2_angle-150)*(-1) - lb)/2;
 //  Serial.println("M1 =" + String(m1_angle)+ ", M2 = " + String(m2_angle));
   // map value to drive motor
 
