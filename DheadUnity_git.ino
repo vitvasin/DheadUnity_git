@@ -1,6 +1,12 @@
-//#include <actuator.h>
-//#include <Dynamixel2Arduino.h>
 
+/*
+//25-4-2022 Update Simplify version ->> remove unnecessary version
+  // Not test on HW yet!
+  
+-remove scservo
+-remove publisher feedback and  feedback2
+
+*/
 //rev3- This version adjust parameter with JOI unity code
 //30-7-2021 -rev4- fix reverse pitch angle line 55 >>> swap 0 and 1023
 //18-8-2021 -rev5- add manual calibration function >> home_adj();
@@ -10,7 +16,7 @@
 #include <DynamixelWorkbench.h>
 #include <Tic.h>
 #include "pitches.h"
-#include <SCServo.h>
+//#include <SCServo.h>
 
 DynamixelWorkbench dxl_wb;
 int32_t goal_position[2] = {0, 1023};
@@ -37,8 +43,8 @@ int oroll, opitch, oyaw, fe, lb;
 float initial_z = 0.0, prev_z = 0.0 , relative_z = 0.0;
 int z = 0, Zgain = 10;
 float return_fe = 0.0, return_lb = 0.0;
-SMS_STS sms_sts;
-const int handID = 1;
+//SMS_STS sms_sts;
+//const int handID = 1;
 
 //Controller Declare
 #if defined(ARDUINO_OpenCR) // When using official ROBOTIS board with DXL circuit.
@@ -48,8 +54,8 @@ const int handID = 1;
 //  #define DEBUG_SERIAL Serial
 const uint8_t DXL_DIR_PIN = 84; // OpenCR Board's DIR PIN.
 #endif
-ros::Publisher feedback("Head_Feedback", &vec6_msg);
-ros::Publisher feedback2("Hand_Feedback", &str_msg);
+//ros::Publisher feedback("Head_Feedback", &vec6_msg);
+//ros::Publisher feedback2("Hand_Feedback", &str_msg);
 
 const uint8_t DXL_ID = 1;
 const float DXL_PROTOCOL_VERSION = 1.0;
@@ -81,7 +87,7 @@ unsigned long period = 500; //time interval
 unsigned long lasttime = 0; //
 
 int minValue = 0, maxValue = 1023;
-bool handState = true;
+//bool handState = true;
 void commandfromHMD( const std_msgs::Float32MultiArray& msg)
 {
 
@@ -128,6 +134,7 @@ void commandfromHMD( const std_msgs::Float32MultiArray& msg)
   if (inv_pitch == false)opitch = map(inputVector[3], 0, 300, maxValue, 0); else opitch = map(inputVector[3], 0, 300, 0, maxValue);
   if (inv_yaw == false)oyaw = map(inputVector[4], 0, 300, maxValue, 0); else oyaw = map(inputVector[4], 0, 300, 0, maxValue);
 
+/* calculation and return value
   float m1_r = (dxl.getPresentPosition(1) - 512) * 0.29;
   float m2_r = (dxl.getPresentPosition(2) - 512) * 0.29;
   //vec6_msg.data[0] = return_fe;//
@@ -139,7 +146,8 @@ void commandfromHMD( const std_msgs::Float32MultiArray& msg)
   vec6_msg.data[2] = (dxl.getPresentPosition(3) - 512) * -0.29;
   vec6_msg.data[3] = (dxl.getPresentPosition(4) - 512) * 0.29;
   vec6_msg.data[4] = (dxl.getPresentPosition(5) - 512) * -0.29;
-
+  */
+/*
   str_msg.data = "callback";
   if (msg.data[20] == 1.0)
   {
@@ -156,7 +164,7 @@ void commandfromHMD( const std_msgs::Float32MultiArray& msg)
     str_msg.data = "error";
     // error
   }
-  
+*/
 
   stringComplete = true;
 
@@ -200,8 +208,8 @@ int noteDurations[] = {
 void setup() {
 
   nh.initNode();
-  nh.advertise(feedback);
-  nh.advertise(feedback2);
+  //nh.advertise(feedback);
+  //nh.advertise(feedback2);
   nh.subscribe(sub);
   nh.subscribe(sub2);
   // Set up I2C. >> for Tic
@@ -211,7 +219,7 @@ void setup() {
   // Set up Serial Port >> for Connect with Unity
   Serial.begin(57600);
   Serial1.begin(1000000);
-  sms_sts.pSerial = &Serial1;
+  //sms_sts.pSerial = &Serial1;
   //while(!Serial);
   delay(500);
   Serial.println("Serial Port Started at 115200");
@@ -288,7 +296,7 @@ void setup() {
 void loop()
 {
   //limitCheck(); // check limit switches >> turn motor torque off until sw1 is press and limit is not pressed. // not tested yet
-  home_adj(); // manual calibration from on-board Switch
+  //home_adj(); // manual calibration from on-board Switch
   //KILLSW();
 
   if (ROSFlag)
@@ -298,7 +306,7 @@ void loop()
     dxl.setGoalPosition(3, oyaw);
     dxl.setGoalPosition(4, opitch);
     dxl.setGoalPosition(5, oroll );
-    handControl(handState);
+    //handControl(handState);
     //control Motor (Linear Actuator)
     tic.setTargetPosition(z);
     // prev_z = initial_z ;
@@ -306,8 +314,8 @@ void loop()
 
 
   }
-  feedback.publish( &vec6_msg );
-  feedback2.publish( &str_msg );
+ // feedback.publish( &vec6_msg );
+ // feedback2.publish( &str_msg );
   //delay(1);
   ROSFlag = false;
   
@@ -326,7 +334,7 @@ void readEncoder()
   vec6_msg.data[3] = dxl.getPresentPosition(4);
   vec6_msg.data[4] = dxl.getPresentPosition(5);
   // mtr_angle[5] = dxl.getPresentPosition(1);
-  feedback.publish( &vec6_msg );
+//  feedback.publish( &vec6_msg );
 }
 
 
@@ -804,8 +812,8 @@ void waitForPosition(int32_t targetPosition)
 //hand
 void handControl(bool state)
 {
-  if (state == false) sms_sts.WritePosEx(handID, 1000, 0, 0);
-  else sms_sts.WritePosEx(handID, 4000, 0, 0);
+//  if (state == false) sms_sts.WritePosEx(handID, 1000, 0, 0);
+//  else sms_sts.WritePosEx(handID, 4000, 0, 0);
 
 }
 void handInit()
