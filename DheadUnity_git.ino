@@ -38,7 +38,7 @@ float initial_z = 0.0, prev_z = 0.0 , relative_z = 0.0;
 int z = 0, Zgain = 10;
 float return_fe = 0.0, return_lb = 0.0;
 SMS_STS sms_sts;
-const int handID = 7;
+const int handID = 1;
 
 //Controller Declare
 #if defined(ARDUINO_OpenCR) // When using official ROBOTIS board with DXL circuit.
@@ -143,12 +143,14 @@ void commandfromHMD( const std_msgs::Float32MultiArray& msg)
   str_msg.data = "callback";
   if (msg.data[20] == 1.0)
   {
-    handControl(true);
-    str_msg.data = "open";
+    handState = true;
+   // handControl(true);
+    str_msg.data = "close";
   } else if (msg.data[20] == 0)
   {
-    handControl(false);
-    str_msg.data = "close";
+    handState = false;
+   // handControl(false);
+    str_msg.data = "open";
   } else
   {
     str_msg.data = "error";
@@ -291,11 +293,12 @@ void loop()
 
   if (ROSFlag)
   {
-
+    resetCommandTimeout();
     waisttoMotor(fe, lb);
     dxl.setGoalPosition(3, oyaw);
     dxl.setGoalPosition(4, opitch);
     dxl.setGoalPosition(5, oroll );
+    handControl(handState);
     //control Motor (Linear Actuator)
     tic.setTargetPosition(z);
     // prev_z = initial_z ;
@@ -307,7 +310,7 @@ void loop()
   feedback2.publish( &str_msg );
   //delay(1);
   ROSFlag = false;
-  resetCommandTimeout();
+  
   //////////////////////////////// test ros node
   nh.spinOnce();
   delay(1);
@@ -781,17 +784,17 @@ void delayWhileResettingCommandTimeout(uint32_t ms)
 
 void waitForPosition(int32_t targetPosition)
 {
-  unsigned long previousMillis = 0;
-  unsigned long currentMillis = millis();
-  const long interval = 5000;
+//  unsigned long previousMillis = 0;
+//  unsigned long currentMillis = millis();
+//  const long interval = 5000;
   do
   {
     resetCommandTimeout();
-    if (currentMillis - previousMillis >= interval)
-    {
-      LEDOn(3);
-      break;
-    }
+//    if (currentMillis - previousMillis >= interval)
+//    {
+//      LEDOn(3);
+//      break;
+//    }
   } while (tic.getCurrentPosition() != targetPosition);
 
 }
@@ -801,14 +804,14 @@ void waitForPosition(int32_t targetPosition)
 //hand
 void handControl(bool state)
 {
-  if (state == true) sms_sts.WritePosEx(handID, 1000, 0, 104);
-  else sms_sts.WritePosEx(handID, 4000, 0, 104);
+  if (state == false) sms_sts.WritePosEx(handID, 1000, 0, 0);
+  else sms_sts.WritePosEx(handID, 4000, 0, 0);
 
 }
 void handInit()
 {
   handControl(true);
-  delay(1000);
+  delay(1500);
   handControl(false);
 
 }
