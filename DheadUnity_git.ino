@@ -264,7 +264,7 @@ void setup() {
 
   // Give the Tic some time to start up.
   delay(20);
-
+/*
   // Set the Tic's current position to 0, so that when we command
   // it to move later, it will move a predictable amount.
   tic.haltAndSetPosition(0);
@@ -287,6 +287,7 @@ void setup() {
 
   //hand Init
   handInit();
+  */
   //initialized
   sound1();
   Serial.println("initialized");
@@ -301,14 +302,14 @@ void loop()
 
   if (ROSFlag)
   {
-    resetCommandTimeout();
-    waisttoMotor(fe, lb);
+    //resetCommandTimeout();
+    //waisttoMotor(fe, lb);
     dxl.setGoalPosition(3, oyaw);
     dxl.setGoalPosition(4, opitch);
     dxl.setGoalPosition(5, oroll );
     //handControl(handState);
     //control Motor (Linear Actuator)
-    tic.setTargetPosition(z);
+   // tic.setTargetPosition(z);
     // prev_z = initial_z ;
     // readEncoder();
 
