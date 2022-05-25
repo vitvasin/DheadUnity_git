@@ -1,7 +1,7 @@
-
+// add reset function from another ros topic
 /*
 //25-4-2022 Update Simplify version ->> remove unnecessary version
-  // Not test on HW yet!
+  // Not test on HW yet! >> tested
   
 -remove scservo
 -remove publisher feedback and  feedback2
@@ -45,7 +45,7 @@ int z = 0, Zgain = 10;
 float return_fe = 0.0, return_lb = 0.0;
 //SMS_STS sms_sts;
 //const int handID = 1;
-
+void(* resetFunc) (void) = 0; //declare reset function @ address 0
 //Controller Declare
 #if defined(ARDUINO_OpenCR) // When using official ROBOTIS board with DXL circuit.
 // For OpenCR, there is a DXL Power Enable pin, so you must initialize and control it.
@@ -173,6 +173,8 @@ void commandfromHMD( const std_msgs::Float32MultiArray& msg)
 
 void setupfromHMD( const std_msgs::Int8MultiArray& st_msg)
 {
+  resetFunc();  
+ /*
   setup_msg = st_msg;
   setup_msg.data = st_msg.data;
   inputSetup[0] = st_msg.data[0]; // roll_inverse
@@ -186,7 +188,7 @@ void setupfromHMD( const std_msgs::Int8MultiArray& st_msg)
   if (inputSetup[2] >= 1) inv_yaw = true;
   else inv_yaw = false;
 
-
+*/
 }
 
 ros::Subscriber<std_msgs::Float32MultiArray> sub("head_command", &commandfromHMD );
@@ -244,19 +246,12 @@ void setup() {
   pinMode(BDPIN_DIP_SW_1, INPUT);
   pinMode(BDPIN_DIP_SW_2, INPUT);
   ////////////////////////////////////////////////////
-
   sync_write_param.addr = 30; //Goal position of DYNAMIXEL-AX series
   sync_write_param.length = 2;
   sync_write_param.xel[0].id = 1;
   sync_write_param.xel[1].id = 2;
   sync_write_param.id_count = 2;
   dxl.writeControlTableItem(RETURN_DELAY_TIME, 254, 0);
-
-
-
-
-
-
   // initialize Servo
   initializeServo();
 
@@ -349,9 +344,9 @@ void initializeServo()
   dxl.writeControlTableItem(MOVING_SPEED, 254, 50);
   dxl.setGoalPosition(254, 512); // set zero position of motor Center position(HOME)
   delay(5000);
-  dxl.writeControlTableItem(MOVING_SPEED, 3, 800);
-  dxl.writeControlTableItem(MOVING_SPEED, 4, 800);
-  dxl.writeControlTableItem(MOVING_SPEED, 5, 800);
+  dxl.writeControlTableItem(MOVING_SPEED, 3, 500);
+  dxl.writeControlTableItem(MOVING_SPEED, 4, 500);
+  dxl.writeControlTableItem(MOVING_SPEED, 5, 500);
   waisttoMotor(0, 0);
 }
 
