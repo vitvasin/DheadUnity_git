@@ -1,3 +1,4 @@
+//26-5-2022 Clean some unused comments
 // add reset function from another ros topic
 /*
 //25-4-2022 Update Simplify version ->> remove unnecessary version
@@ -54,9 +55,6 @@ void(* resetFunc) (void) = 0; //declare reset function @ address 0
 //  #define DEBUG_SERIAL Serial
 const uint8_t DXL_DIR_PIN = 84; // OpenCR Board's DIR PIN.
 #endif
-//ros::Publisher feedback("Head_Feedback", &vec6_msg);
-//ros::Publisher feedback2("Hand_Feedback", &str_msg);
-
 const uint8_t DXL_ID = 1;
 const float DXL_PROTOCOL_VERSION = 1.0;
 //initialize dynamixel motor
@@ -92,11 +90,6 @@ void commandfromHMD( const std_msgs::Float32MultiArray& msg)
 {
 
   ROSFlag = true;
-
-  //  if (vec6_msg.data[20] != msg.data[20])
-  //  {
-  //
-  //  }
   vec6_msg = msg;
   vec6_msg.data = msg.data;
   inputVector[0] = msg.data[0]; // flex
@@ -105,20 +98,9 @@ void commandfromHMD( const std_msgs::Float32MultiArray& msg)
   inputVector[3] = msg.data[3]; // pitch Camera.transform.eulerAngles.x
   inputVector[4] = msg.data[4]; //yaw  Camera.transform.eulerAngles.y
   inputVector[5] = msg.data[5]; // roll Camera.transform.eulerAngles.z
-
-
-
-  //Assign initial z
-  //initial_z = abs(inputVector[2]) * Zgain;
-  //relative_z = initial_z ;//- prev_z;
-  // z = map(abs(inputVector[1]), 0, 100 , 0, 3000); // test with S20-15-30-B need to adjust when change
   z = abs(inputVector[1]);
-  //
   fe = inputVector[0];
   lb = inputVector[2];
-
-
-
   // map angle from 0-360 to 0 to 180, 0 to -180
   if (inputVector[3] > 180) inputVector[3] -= 360.00;
   if (inputVector[4] > 180) inputVector[4] -= 360.00;
@@ -134,61 +116,25 @@ void commandfromHMD( const std_msgs::Float32MultiArray& msg)
   if (inv_pitch == false)opitch = map(inputVector[3], 0, 300, maxValue, 0); else opitch = map(inputVector[3], 0, 300, 0, maxValue);
   if (inv_yaw == false)oyaw = map(inputVector[4], 0, 300, maxValue, 0); else oyaw = map(inputVector[4], 0, 300, 0, maxValue);
 
-/* calculation and return value
-  float m1_r = (dxl.getPresentPosition(1) - 512) * 0.29;
-  float m2_r = (dxl.getPresentPosition(2) - 512) * 0.29;
-  //vec6_msg.data[0] = return_fe;//
-  vec6_msg.data[0] = (m1_r - m2_r) / 4;
-  vec6_msg.data[1] =  (m1_r + m2_r) / 2 * -1;
-
-  //vec6_msg.data[1] = return_lb;//(dxl.getPresentPosition(2)-512) *-0.29;
-  //vec6_msg.data[1] = ((dxl.getPresentPosition(2)-512) *0.29)-(2*fe);
-  vec6_msg.data[2] = (dxl.getPresentPosition(3) - 512) * -0.29;
-  vec6_msg.data[3] = (dxl.getPresentPosition(4) - 512) * 0.29;
-  vec6_msg.data[4] = (dxl.getPresentPosition(5) - 512) * -0.29;
-  */
-/*
-  str_msg.data = "callback";
-  if (msg.data[20] == 1.0)
-  {
-    handState = true;
-   // handControl(true);
-    str_msg.data = "close";
-  } else if (msg.data[20] == 0)
-  {
-    handState = false;
-   // handControl(false);
-    str_msg.data = "open";
-  } else
-  {
-    str_msg.data = "error";
-    // error
-  }
-*/
-
   stringComplete = true;
 
 }
 
+bool reposition = false;
 
 void setupfromHMD( const std_msgs::Int8MultiArray& st_msg)
 {
-  resetFunc();  
- /*
-  setup_msg = st_msg;
-  setup_msg.data = st_msg.data;
-  inputSetup[0] = st_msg.data[0]; // roll_inverse
-  inputSetup[1] = st_msg.data[1]; // pitch_inverse
-  inputSetup[2] = st_msg.data[2]; // yaw_inverse
+  if(st_msg.data[0] >0)
+  {
+    reposition = true;
+  }
 
-  if (inputSetup[0] >= 1) inv_roll = true;
-  else inv_roll = false;
-  if (inputSetup[1] >= 1) inv_pitch = true;
-  else inv_pitch = false;
-  if (inputSetup[2] >= 1) inv_yaw = true;
-  else inv_yaw = false;
 
-*/
+  if(reposition)
+  {
+  initializeServo();
+  reposition =false;
+  }
 }
 
 ros::Subscriber<std_msgs::Float32MultiArray> sub("head_command", &commandfromHMD );
@@ -208,10 +154,7 @@ int noteDurations[] = {
 
 
 void setup() {
-
   nh.initNode();
-  //nh.advertise(feedback);
-  //nh.advertise(feedback2);
   nh.subscribe(sub);
   nh.subscribe(sub2);
   // Set up I2C. >> for Tic
@@ -221,8 +164,6 @@ void setup() {
   // Set up Serial Port >> for Connect with Unity
   Serial.begin(57600);
   Serial1.begin(1000000);
-  //sms_sts.pSerial = &Serial1;
-  //while(!Serial);
   delay(500);
   Serial.println("Serial Port Started at 115200");
 
@@ -256,32 +197,12 @@ void setup() {
   initializeServo();
 
   LEDRun();
-
-  // Give the Tic some time to start up.
   delay(20);
-
-  // Set the Tic's current position to 0, so that when we command
-  // it to move later, it will move a predictable amount.
   tic.haltAndSetPosition(0);
-
-  // Tells the Tic that it is OK to start driving the motor.  The
-  // Tic's safe-start feature helps avoid unexpected, accidental
-  // movement of the motor: if an error happens, the Tic will not
-  // drive the motor again until it receives the Exit Safe Start
-  // command.  The safe-start feature can be disbled in the Tic
-  // Control Center.
   tic.exitSafeStart();
-
   tic.setTargetPosition(-22000);
   waitForPosition(-22000);
-
-
   tic.haltAndSetPosition(0);
-
-
-
-  //hand Init
-  handInit();
   //initialized
   sound1();
   Serial.println("initialized");
@@ -301,20 +222,10 @@ void loop()
     dxl.setGoalPosition(3, oyaw);
     dxl.setGoalPosition(4, opitch);
     dxl.setGoalPosition(5, oroll );
-    //handControl(handState);
-    //control Motor (Linear Actuator)
     tic.setTargetPosition(z);
-    // prev_z = initial_z ;
-    // readEncoder();
-
 
   }
- // feedback.publish( &vec6_msg );
- // feedback2.publish( &str_msg );
-  //delay(1);
   ROSFlag = false;
-  
-  //////////////////////////////// test ros node
   nh.spinOnce();
   delay(1);
 }
@@ -417,47 +328,16 @@ void home_adj()
       {
         c21 = 0;
       } else c21 = c2 - adjust_offset;
-      //pos1 = c11;
-      //pos2 = c21;
-      //pos1 = 1023;
-      //pos2 = 0;
-      //memcpy(sync_write_param.xel[0].data, &pos1, sizeof(pos1));
-      //memcpy(sync_write_param.xel[1].data, &pos2, sizeof(pos2));
 
-      //dxl.syncWrite(sync_write_param);
-      //delay(500);
       dxl.writeControlTableItem(MOVING_SPEED, 1, 50);
       dxl.writeControlTableItem(MOVING_SPEED, 2, 50);
-      /*
 
-        dxl.setGoalPosition(1, 1023); // set zero position of motor Center position(HOME)
-        //delay(1);
-        dxl.setGoalPosition(2, 0); // set zero position of motor Center position(HOME)
-        delay(5000);
-        dxl.setGoalPosition(1, 0); // set zero position of motor Center position(HOME)
-        //delay(1);
-        dxl.setGoalPosition(2, 1023); // set zero position of motor Center position(HOME)
-        delay(5000);
-      */
 
       waisttoMotor(-90, 0);
       delay(7000);
       waisttoMotor(90, 0);
       delay(13000);
       waisttoMotor(0, 0);
-
-      /*
-        dxl.setGoalPosition(1, 1023);
-        dxl.setGoalPosition(2, 0);
-        delay(7000);
-        dxl.setGoalPosition(1, 0);
-        dxl.setGoalPosition(2, 1023);
-        delay(13000);
-        dxl.setGoalPosition(1, 512);
-        dxl.setGoalPosition(2, 512);
-        dxl.writeControlTableItem(MOVING_SPEED, 1, 128);
-        dxl.writeControlTableItem(MOVING_SPEED, 2, 128);
-      */
     }
     if (digitalRead(BDPIN_PUSH_SW_2) == HIGH)
     {
@@ -469,18 +349,7 @@ void home_adj()
       {
         c21 = 1023;
       } else c21 = c2 + adjust_offset;
-      /*
-        pos1 = c11;
-        pos2 = c21;
-      */
-      /*
-            pos1 = 0;
-            pos2 = 1023;
-            memcpy(sync_write_param.xel[0].data, &pos1, sizeof(pos1));
-            memcpy(sync_write_param.xel[1].data, &pos2, sizeof(pos2));
-            // delay(3000);
-            dxl.syncWrite(sync_write_param);
-            delay(500);*/
+
       dxl.writeControlTableItem(MOVING_SPEED, 1, 50);
       dxl.writeControlTableItem(MOVING_SPEED, 2, 50);
 
@@ -691,8 +560,6 @@ void Home()
   tic.exitSafeStart();
   tic.setTargetPosition(-10000);
   waitForPosition(-10000);
-
-
   tic.haltAndSetPosition(0);
 
 }
@@ -714,24 +581,6 @@ void LEDRun()
     delay(100);
   }
 }
-
-/*
-  void serialEvent() {
-
-  while (Serial.available()) {
-    // get the new byte:
-    char inChar = (char)Serial.read();
-    // add it to the inputString:
-    inputString += inChar;
-    // if the incoming character is a newline, set a flag so the main loop can
-    // do something about it:
-    if (inChar == '\n') {
-      stringComplete = true;
-      // Serial.flush();
-    }
-  }
-  }
-*/
 
 
 void Spliter()
@@ -787,17 +636,11 @@ void delayWhileResettingCommandTimeout(uint32_t ms)
 
 void waitForPosition(int32_t targetPosition)
 {
-//  unsigned long previousMillis = 0;
-//  unsigned long currentMillis = millis();
-//  const long interval = 5000;
+
   do
   {
     resetCommandTimeout();
-//    if (currentMillis - previousMillis >= interval)
-//    {
-//      LEDOn(3);
-//      break;
-//    }
+
   } while (tic.getCurrentPosition() != targetPosition);
 
 }
@@ -807,8 +650,7 @@ void waitForPosition(int32_t targetPosition)
 //hand
 void handControl(bool state)
 {
-//  if (state == false) sms_sts.WritePosEx(handID, 1000, 0, 0);
-//  else sms_sts.WritePosEx(handID, 4000, 0, 0);
+
 
 }
 void handInit()
