@@ -135,6 +135,7 @@ void setupfromHMD( const std_msgs::Int8MultiArray& st_msg)
   initializeServo();
   reposition =false;
   }
+  st_msg.data[0] =0;
 }
 
 ros::Subscriber<std_msgs::Float32MultiArray> sub("head_command", &commandfromHMD );
