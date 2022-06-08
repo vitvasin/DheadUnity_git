@@ -1,11 +1,12 @@
+//8-6-2022 add time counter for disable current supplying to linear actuator
 //26-5-2022 Clean some unused comments
 // add reset function from another ros topic
 /*
-//25-4-2022 Update Simplify version ->> remove unnecessary version
+  //25-4-2022 Update Simplify version ->> remove unnecessary version
   // Not test on HW yet! >> tested
-  
--remove scservo
--remove publisher feedback and  feedback2
+
+  -remove scservo
+  -remove publisher feedback and  feedback2
 
 */
 //rev3- This version adjust parameter with JOI unity code
@@ -16,6 +17,11 @@
 #include <Dynamixel2Arduino.h>
 #include <DynamixelWorkbench.h>
 #include <Tic.h>
+// Define the current limit, in milliamps, to use while moving
+// the motor.
+const uint16_t currentLimitWhileMoving = 600;
+// Define the current limit, in milliamps, to use while stopped.
+const uint16_t currentLimitWhileStopped = 0;
 #include "pitches.h"
 //#include <SCServo.h>
 
@@ -124,18 +130,18 @@ bool reposition = false;
 
 void setupfromHMD( const std_msgs::Int8MultiArray& st_msg)
 {
-  if(st_msg.data[0] >0)
+  if (st_msg.data[0] > 0)
   {
     reposition = true;
   }
 
 
-  if(reposition)
+  if (reposition)
   {
-  initializeServo();
-  reposition =false;
+    initializeServo();
+    reposition = false;
   }
-  st_msg.data[0] =0;
+  st_msg.data[0] = 0;
 }
 
 ros::Subscriber<std_msgs::Float32MultiArray> sub("head_command", &commandfromHMD );
@@ -159,6 +165,7 @@ void setup() {
   nh.subscribe(sub);
   nh.subscribe(sub2);
   // Set up I2C. >> for Tic
+  tic.setProduct(TicProduct::T825);
   Wire.begin();
   Wire.setClock(400000);
   delay(500);
@@ -198,35 +205,49 @@ void setup() {
   initializeServo();
 
   LEDRun();
+  tic.setCurrentLimit(currentLimitWhileMoving);
   delay(20);
   tic.haltAndSetPosition(0);
   tic.exitSafeStart();
   tic.setTargetPosition(-22000);
   waitForPosition(-22000);
   tic.haltAndSetPosition(0);
+  tic.setCurrentLimit(currentLimitWhileStopped);
   //initialized
   sound1();
   Serial.println("initialized");
 }
 
-
+unsigned long previousMillis = 0;
+const long interval = 60000;
+bool working_Flag = true;
 void loop()
 {
   //limitCheck(); // check limit switches >> turn motor torque off until sw1 is press and limit is not pressed. // not tested yet
   //home_adj(); // manual calibration from on-board Switch
   //KILLSW();
 
+
+  unsigned long currentMillis = millis();
+  if (currentMillis - previousMillis >= interval && working_Flag == false)
+  {
+    previousMillis = currentMillis;
+    tic.setCurrentLimit(currentLimitWhileStopped);
+  }
+  
   if (ROSFlag)
   {
+    working_Flag = true;
+    tic.setCurrentLimit(currentLimitWhileMoving);
     resetCommandTimeout();
     waisttoMotor(fe, lb);
     dxl.setGoalPosition(3, oyaw);
     dxl.setGoalPosition(4, opitch);
     dxl.setGoalPosition(5, oroll );
     tic.setTargetPosition(z);
-
   }
   ROSFlag = false;
+  working_Flag = false;
   nh.spinOnce();
   delay(1);
 }
@@ -241,7 +262,7 @@ void readEncoder()
   vec6_msg.data[3] = dxl.getPresentPosition(4);
   vec6_msg.data[4] = dxl.getPresentPosition(5);
   // mtr_angle[5] = dxl.getPresentPosition(1);
-//  feedback.publish( &vec6_msg );
+  //  feedback.publish( &vec6_msg );
 }
 
 
@@ -256,9 +277,9 @@ void initializeServo()
   dxl.writeControlTableItem(MOVING_SPEED, 254, 50);
   dxl.setGoalPosition(254, 512); // set zero position of motor Center position(HOME)
   delay(5000);
-  dxl.writeControlTableItem(MOVING_SPEED, 3, 500);
-  dxl.writeControlTableItem(MOVING_SPEED, 4, 500);
-  dxl.writeControlTableItem(MOVING_SPEED, 5, 500);
+  dxl.writeControlTableItem(MOVING_SPEED, 3, 300);
+  dxl.writeControlTableItem(MOVING_SPEED, 4, 300);
+  dxl.writeControlTableItem(MOVING_SPEED, 5, 300);
   waisttoMotor(0, 0);
 }
 
