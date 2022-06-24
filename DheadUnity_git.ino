@@ -1,4 +1,5 @@
-//8-6-2022 add time counter for disable current supplying to linear actuator
+//24-6-2022 can use Push bt2. to restart the initial position &&LB offset
+//8-6-2022 add time counter for disable(temporary) current supplying to linear actuator
 //26-5-2022 Clean some unused comments
 // add reset function from another ros topic
 /*
@@ -70,7 +71,7 @@ ParamForSyncWriteInst_t sync_write_param;
 //initialize Tic
 TicI2C tic;
 
-
+int lb_offset=-5;
 using namespace ControlTableItem; //This namespace is required to use Control table item names (Dynamixel)
 
 //String process variable
@@ -224,7 +225,7 @@ bool working_Flag = true;
 void loop()
 {
   //limitCheck(); // check limit switches >> turn motor torque off until sw1 is press and limit is not pressed. // not tested yet
-  //home_adj(); // manual calibration from on-board Switch
+  home_adj(); // manual calibration from on-board Switch
   //KILLSW();
 
 
@@ -240,7 +241,7 @@ void loop()
     working_Flag = true;
     tic.setCurrentLimit(currentLimitWhileMoving);
     resetCommandTimeout();
-    waisttoMotor(fe, lb);
+    waisttoMotor(fe, lb+lb_offset);
     dxl.setGoalPosition(3, oyaw);
     dxl.setGoalPosition(4, opitch);
     dxl.setGoalPosition(5, oroll );
@@ -280,7 +281,7 @@ void initializeServo()
   dxl.writeControlTableItem(MOVING_SPEED, 3, 300);
   dxl.writeControlTableItem(MOVING_SPEED, 4, 300);
   dxl.writeControlTableItem(MOVING_SPEED, 5, 300);
-  waisttoMotor(0, 0);
+  waisttoMotor(0, 0+lb_offset);
 }
 
 void KILLSW()
@@ -300,134 +301,21 @@ void KILLSW()
 
 void home_adj()
 {
-  static int32_t pos1;
-  static int32_t pos2;
-  int c1 = dxl.getPresentPosition(1);
-  int c2 = dxl.getPresentPosition(2);
-  int adjust_offset = 10;
-  if (digitalRead(BDPIN_DIP_SW_1) == LOW && digitalRead(BDPIN_DIP_SW_2) == LOW) // Lateral setup
+  if(digitalRead(BDPIN_PUSH_SW_2) == HIGH)
   {
-    if (digitalRead(BDPIN_PUSH_SW_1) == HIGH)
-    {
-      dxl.setGoalPosition(1, c1 + adjust_offset); // set zero position of motor Center position(HOME)
-      dxl.setGoalPosition(2, c2 + adjust_offset); // set zero position of motor Center position(HOME)
-      delay(10);
-    }
-    if (digitalRead(BDPIN_PUSH_SW_2) == HIGH)
-    {
-      dxl.setGoalPosition(1, c1 - adjust_offset); // set zero position of motor Center position(HOME)
-      dxl.setGoalPosition(2, c2 - adjust_offset); // set zero position of motor Center position(HOME)
-      delay(10);
-    }
-  } else if (digitalRead(BDPIN_DIP_SW_1) == LOW && digitalRead(BDPIN_DIP_SW_2) == HIGH)  // FE setup
-  {
-    if (digitalRead(BDPIN_PUSH_SW_1) == HIGH)
-    {
-      dxl.setGoalPosition(1, c1 + adjust_offset); // set zero position of motor Center position(HOME)
-      dxl.setGoalPosition(2, c2 - adjust_offset); // set zero position of motor Center position(HOME)
-
-      delay(10);
-    }
-    if (digitalRead(BDPIN_PUSH_SW_2) == HIGH)
-    {
-      dxl.setGoalPosition(1, c1 - adjust_offset); // set zero position of motor Center position(HOME)
-      dxl.setGoalPosition(2, c2 + adjust_offset); // set zero position of motor Center position(HOME)
-      delay(10);
-    }
-  } else if (digitalRead(BDPIN_DIP_SW_1) == HIGH && digitalRead(BDPIN_DIP_SW_2) == LOW)  // FE setup 45 deg
-  {
-    adjust_offset = map(8, 0, 300, 0, 1023);
-    int c11, c21;
-
-
-    if (digitalRead(BDPIN_PUSH_SW_1) == HIGH)
-    {
-      if (c1 + adjust_offset > 1023)
-      {
-        c11 = 1023;
-      } else c11 = c1 + adjust_offset;
-      if (c2 - adjust_offset < 0)
-      {
-        c21 = 0;
-      } else c21 = c2 - adjust_offset;
-
-      dxl.writeControlTableItem(MOVING_SPEED, 1, 50);
-      dxl.writeControlTableItem(MOVING_SPEED, 2, 50);
-
-
-      waisttoMotor(-90, 0);
-      delay(7000);
-      waisttoMotor(90, 0);
-      delay(13000);
-      waisttoMotor(0, 0);
-    }
-    if (digitalRead(BDPIN_PUSH_SW_2) == HIGH)
-    {
-      if (c1 - adjust_offset < 0)
-      {
-        c11 = 0;
-      } else c11 = c1 - adjust_offset;
-      if (c2 + adjust_offset > 1023)
-      {
-        c21 = 1023;
-      } else c21 = c2 + adjust_offset;
-
-      dxl.writeControlTableItem(MOVING_SPEED, 1, 50);
-      dxl.writeControlTableItem(MOVING_SPEED, 2, 50);
-
-      waisttoMotor(0, -90);
-      delay(10000);
-      waisttoMotor(0, 90);
-      delay(10000);
-      waisttoMotor(0, 0);
-
-
-      dxl.writeControlTableItem(MOVING_SPEED, 1, 128);
-      dxl.writeControlTableItem(MOVING_SPEED, 2, 128);
-    }
-
-
-  } else if (digitalRead(BDPIN_DIP_SW_1) == HIGH && digitalRead(BDPIN_DIP_SW_2) == HIGH)
-  {
-    adjust_offset = map(30, 0, 300, 0, 1023);
-    int c11, c21;
-    if (digitalRead(BDPIN_PUSH_SW_1) == HIGH)
-    {
-      if (c1 + adjust_offset > 1023)
-      {
-        c11 = 1023;
-      } else c11 = c1 + adjust_offset;
-      if (c2 + adjust_offset > 1023)
-      {
-        c21 = 1023;
-      } else c21 = c2 + adjust_offset;
-      pos1 = c11;
-      pos2 = c21;
-      memcpy(sync_write_param.xel[0].data, &pos1, sizeof(pos1));
-      memcpy(sync_write_param.xel[1].data, &pos2, sizeof(pos2));
-      // delay(3000);
-      dxl.syncWrite(sync_write_param);
-      delay(500);
-    }
-    if (digitalRead(BDPIN_PUSH_SW_2) == HIGH)
-    {
-      if (c1 - adjust_offset < 0)
-      {
-        c11 = 0;
-      } else c11 = c1 - adjust_offset;
-      if (c2 - adjust_offset < 0)
-      {
-        c21 = 0;
-      } else c21 = c2 - adjust_offset;
-      pos1 = c11;
-      pos2 = c21;
-      memcpy(sync_write_param.xel[0].data, &pos1, sizeof(pos1));
-      memcpy(sync_write_param.xel[1].data, &pos2, sizeof(pos2));
-      // delay(3000);
-      dxl.syncWrite(sync_write_param);
-      delay(500);
-    }
-
+  initializeServo();
+  LEDRun();
+  tic.setCurrentLimit(currentLimitWhileMoving);
+  delay(20);
+  tic.haltAndSetPosition(0);
+  tic.exitSafeStart();
+  tic.setTargetPosition(-22000);
+  waitForPosition(-22000);
+  tic.haltAndSetPosition(0);
+  tic.setCurrentLimit(currentLimitWhileStopped);
+  //initialized
+  sound2();
+  Serial.println("initialized");
   }
 }
 
@@ -640,6 +528,29 @@ void sound1()
   }
 }
 
+int melody2[] = {
+  NOTE_A4, NOTE_B4, NOTE_C3
+};
+
+
+void sound2()
+{
+  for (int thisNote = 0; thisNote < 3; thisNote++) {
+
+    // to calculate the note duration, take one second
+    // divided by the note type.
+    //e.g. quarter note = 1000 / 4, eighth note = 1000/8, etc.
+    int noteDuration = 1000 / noteDurations[thisNote];
+    tone(BDPIN_BUZZER, melody2[thisNote], noteDuration);
+
+    // to distinguish the notes, set a minimum time between them.
+    // the note's duration + 30% seems to work well:
+    int pauseBetweenNotes = noteDuration * 1.30;
+    delay(pauseBetweenNotes);
+    // stop the tone playing:
+    noTone(BDPIN_BUZZER);
+  }
+}
 
 void resetCommandTimeout()
 {
