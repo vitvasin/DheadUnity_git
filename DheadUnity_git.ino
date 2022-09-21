@@ -1,3 +1,4 @@
+//29-6-2022 add flag to check if it disconnected (not tested)
 //24-6-2022 can use Push bt2. to restart the initial position &&LB offset
 //8-6-2022 add time counter for disable(temporary) current supplying to linear actuator
 //26-5-2022 Clean some unused comments
@@ -71,7 +72,7 @@ ParamForSyncWriteInst_t sync_write_param;
 //initialize Tic
 TicI2C tic;
 
-int lb_offset=-5;
+int lb_offset=0;
 using namespace ControlTableItem; //This namespace is required to use Control table item names (Dynamixel)
 
 //String process variable
@@ -222,6 +223,7 @@ void setup() {
 unsigned long previousMillis = 0;
 const long interval = 60000;
 bool working_Flag = true;
+bool rst_Flag = false;
 void loop()
 {
   //limitCheck(); // check limit switches >> turn motor torque off until sw1 is press and limit is not pressed. // not tested yet
@@ -239,6 +241,7 @@ void loop()
   if (ROSFlag)
   {
     working_Flag = true;
+    rst_Flag = true;
     tic.setCurrentLimit(currentLimitWhileMoving);
     resetCommandTimeout();
     waisttoMotor(fe, lb+lb_offset);
@@ -247,6 +250,12 @@ void loop()
     dxl.setGoalPosition(5, oroll );
     tic.setTargetPosition(z);
   }
+  if(nh.connected() == false && rst_Flag == true)
+  {
+    rst_Flag = false;
+    home_adj();
+  }
+  
   ROSFlag = false;
   working_Flag = false;
   nh.spinOnce();
