@@ -162,6 +162,19 @@ int noteDurations[] = {
 };
 
 
+#include "Adafruit_VL53L0X.h"
+
+#include "Wire.h"
+#include <MPU6050_light.h>
+MPU6050 mpu(Wire);
+unsigned long timer = 0;
+Adafruit_VL53L0X lox = Adafruit_VL53L0X();
+
+
+
+
+
+
 void setup() {
   nh.initNode();
   nh.subscribe(sub);
@@ -176,8 +189,11 @@ void setup() {
   Serial1.begin(1000000);
   delay(500);
   Serial.println("Serial Port Started at 115200");
-
-
+  byte status = mpu.begin(); //init gyros/ accel
+  delay(1000);
+  // mpu.upsideDownMounting = true; // uncomment this line if the MPU6050 is mounted upside-down
+  mpu.calcOffsets(); // gyro and accelero
+  lox.begin(); // init. Range finder sensor
   // Set Port baudrate to 1M. This has to match with DYNAMIXEL baudrate.
   dxl.begin(1000000);
 
@@ -212,7 +228,7 @@ void setup() {
   tic.haltAndSetPosition(0);
   tic.exitSafeStart();
   tic.setTargetPosition(-22000);
-  waitForPosition(-22000);
+  //waitForPosition(-22000);
   tic.haltAndSetPosition(0);
   tic.setCurrentLimit(currentLimitWhileStopped);
   //initialized
@@ -220,7 +236,7 @@ void setup() {
   Serial.println("initialized");
 }
 
-unsigned long previousMillis = 0;
+unsigned long previousMillis = 0, timerx = 0;
 const long interval = 60000;
 bool working_Flag = true;
 bool rst_Flag = false;
@@ -229,7 +245,27 @@ void loop()
   //limitCheck(); // check limit switches >> turn motor torque off until sw1 is press and limit is not pressed. // not tested yet
   home_adj(); // manual calibration from on-board Switch
   //KILLSW();
+    VL53L0X_RangingMeasurementData_t measure;
+ // Serial.print("Reading a measurement... ");
+  lox.rangingTest(&measure, false); // pass in 'true' to get debug data printout!
 
+  if (measure.RangeStatus != 4) {  // phase failures have incorrect data
+    Serial.print("Distance (mm): "); Serial.println(measure.RangeMilliMeter);
+  } else {
+    Serial.println(" out of range ");
+  }
+
+  mpu.update();
+  
+  if((millis()-timerx)>10){ // print data every 10ms
+  Serial.print("X : ");
+  Serial.print(mpu.getAngleX());
+  Serial.print("\tY : ");
+  Serial.print(mpu.getAngleY());
+  Serial.print("\tZ : ");
+  Serial.println(mpu.getAngleZ());
+  timer = millis();  
+  }
 
   unsigned long currentMillis = millis();
   if (currentMillis - previousMillis >= interval && working_Flag == false)
