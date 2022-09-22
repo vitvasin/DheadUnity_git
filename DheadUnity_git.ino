@@ -72,7 +72,7 @@ ParamForSyncWriteInst_t sync_write_param;
 //initialize Tic
 TicI2C tic;
 
-int lb_offset=0;
+int lb_offset = 0;
 using namespace ControlTableItem; //This namespace is required to use Control table item names (Dynamixel)
 
 //String process variable
@@ -146,10 +146,13 @@ void setupfromHMD( const std_msgs::Int8MultiArray& st_msg)
   st_msg.data[0] = 0;
 }
 
+
 ros::Subscriber<std_msgs::Float32MultiArray> sub("head_command", &commandfromHMD );
 
 ros::Subscriber<std_msgs::Int8MultiArray> sub2("head_setup", &setupfromHMD );
 
+std_msgs::Float32MultiArray msg_angle;
+ros::Publisher pub_angle("/fad", &msg_angle); // fad = face angle + distance
 
 // notes in the melody:
 int melody[] = {
@@ -179,6 +182,7 @@ void setup() {
   nh.initNode();
   nh.subscribe(sub);
   nh.subscribe(sub2);
+  nh.advertise(pub_angle);
   // Set up I2C. >> for Tic
   tic.setProduct(TicProduct::T825);
   Wire.begin();
@@ -245,8 +249,8 @@ void loop()
   //limitCheck(); // check limit switches >> turn motor torque off until sw1 is press and limit is not pressed. // not tested yet
   home_adj(); // manual calibration from on-board Switch
   //KILLSW();
-    VL53L0X_RangingMeasurementData_t measure;
- // Serial.print("Reading a measurement... ");
+  VL53L0X_RangingMeasurementData_t measure;
+  // Serial.print("Reading a measurement... ");
   lox.rangingTest(&measure, false); // pass in 'true' to get debug data printout!
 
   if (measure.RangeStatus != 4) {  // phase failures have incorrect data
@@ -256,15 +260,15 @@ void loop()
   }
 
   mpu.update();
-  
-  if((millis()-timerx)>10){ // print data every 10ms
-  Serial.print("X : ");
-  Serial.print(mpu.getAngleX());
-  Serial.print("\tY : ");
-  Serial.print(mpu.getAngleY());
-  Serial.print("\tZ : ");
-  Serial.println(mpu.getAngleZ());
-  timer = millis();  
+
+  if ((millis() - timerx) > 10) { // print data every 10ms
+    Serial.print("X : ");
+    Serial.print(mpu.getAngleX());
+    Serial.print("\tY : ");
+    Serial.print(mpu.getAngleY());
+    Serial.print("\tZ : ");
+    Serial.println(mpu.getAngleZ());
+    timer = millis();
   }
 
   unsigned long currentMillis = millis();
@@ -273,25 +277,25 @@ void loop()
     previousMillis = currentMillis;
     tic.setCurrentLimit(currentLimitWhileStopped);
   }
-  
+
   if (ROSFlag)
   {
     working_Flag = true;
     rst_Flag = true;
     tic.setCurrentLimit(currentLimitWhileMoving);
     resetCommandTimeout();
-    waisttoMotor(fe, lb+lb_offset);
+    waisttoMotor(fe, lb + lb_offset);
     dxl.setGoalPosition(3, oyaw);
     dxl.setGoalPosition(4, opitch);
     dxl.setGoalPosition(5, oroll );
     tic.setTargetPosition(z);
   }
-  if(nh.connected() == false && rst_Flag == true)
+  if (nh.connected() == false && rst_Flag == true)
   {
     rst_Flag = false;
     home_adj();
   }
-  
+
   ROSFlag = false;
   working_Flag = false;
   nh.spinOnce();
@@ -326,7 +330,7 @@ void initializeServo()
   dxl.writeControlTableItem(MOVING_SPEED, 3, 300);
   dxl.writeControlTableItem(MOVING_SPEED, 4, 300);
   dxl.writeControlTableItem(MOVING_SPEED, 5, 300);
-  waisttoMotor(0, 0+lb_offset);
+  waisttoMotor(0, 0 + lb_offset);
 }
 
 void KILLSW()
@@ -346,21 +350,21 @@ void KILLSW()
 
 void home_adj()
 {
-  if(digitalRead(BDPIN_PUSH_SW_2) == HIGH)
+  if (digitalRead(BDPIN_PUSH_SW_2) == HIGH)
   {
-  initializeServo();
-  LEDRun();
-  tic.setCurrentLimit(currentLimitWhileMoving);
-  delay(20);
-  tic.haltAndSetPosition(0);
-  tic.exitSafeStart();
-  tic.setTargetPosition(-22000);
-  waitForPosition(-22000);
-  tic.haltAndSetPosition(0);
-  tic.setCurrentLimit(currentLimitWhileStopped);
-  //initialized
-  sound2();
-  Serial.println("initialized");
+    initializeServo();
+    LEDRun();
+    tic.setCurrentLimit(currentLimitWhileMoving);
+    delay(20);
+    tic.haltAndSetPosition(0);
+    tic.exitSafeStart();
+    tic.setTargetPosition(-22000);
+    waitForPosition(-22000);
+    tic.haltAndSetPosition(0);
+    tic.setCurrentLimit(currentLimitWhileStopped);
+    //initialized
+    sound2();
+    Serial.println("initialized");
   }
 }
 
