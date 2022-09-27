@@ -254,20 +254,26 @@ void loop()
   lox.rangingTest(&measure, false); // pass in 'true' to get debug data printout!
 
   if (measure.RangeStatus != 4) {  // phase failures have incorrect data
-    Serial.print("Distance (mm): "); Serial.println(measure.RangeMilliMeter);
+    msg_angle.data[0] = measure.RangeMilliMeter;
+    //Serial.print("Distance (mm): "); Serial.println(measure.RangeMilliMeter);
   } else {
-    Serial.println(" out of range ");
+    msg_angle.data[0] = 9999;
+  /*  Serial.println(" out of range ");*/
   }
 
   mpu.update();
 
   if ((millis() - timerx) > 10) { // print data every 10ms
-    Serial.print("X : ");
+   /* Serial.print("X : ");
     Serial.print(mpu.getAngleX());
     Serial.print("\tY : ");
     Serial.print(mpu.getAngleY());
     Serial.print("\tZ : ");
-    Serial.println(mpu.getAngleZ());
+    Serial.println(mpu.getAngleZ());*/
+    msg_angle.data[1]=mpu.getAngleX();
+    msg_angle.data[2]=mpu.getAngleY();
+    msg_angle.data[3]=mpu.getAngleZ();
+    pub_angle.publish(&msg_angle);
     timer = millis();
   }
 
