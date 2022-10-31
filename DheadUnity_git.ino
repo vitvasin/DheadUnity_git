@@ -1,3 +1,4 @@
+//31/10/2022 disable IMU and distance sensor pulling/ adjust motor speed
 //29-6-2022 add flag to check if it disconnected (not tested)
 //24-6-2022 can use Push bt2. to restart the initial position &&LB offset
 //8-6-2022 add time counter for disable(temporary) current supplying to linear actuator
@@ -152,7 +153,7 @@ ros::Subscriber<std_msgs::Float32MultiArray> sub("head_command", &commandfromHMD
 ros::Subscriber<std_msgs::Int8MultiArray> sub2("head_setup", &setupfromHMD );
 
 std_msgs::Float32MultiArray msg_angle;
-ros::Publisher pub_angle("/fad", &msg_angle); // fad = face angle + distance
+//ros::Publisher pub_angle("/fad", &msg_angle); // fad = face angle + distance
 
 // notes in the melody:
 int melody[] = {
@@ -182,7 +183,13 @@ void setup() {
   nh.initNode();
   nh.subscribe(sub);
   nh.subscribe(sub2);
-  nh.advertise(pub_angle);
+  //nh.advertise(pub_angle);
+  msg_angle.data = (float*)malloc(sizeof(float) * 4);
+  msg_angle.data_length = 4;
+  msg_angle.data[0]= 0.0;
+  msg_angle.data[1]= 0.0;
+  msg_angle.data[2]= 0.0;
+  msg_angle.data[3]= 0.0;
   // Set up I2C. >> for Tic
   tic.setProduct(TicProduct::T825);
   Wire.begin();
@@ -196,7 +203,7 @@ void setup() {
   byte status = mpu.begin(); //init gyros/ accel
   delay(1000);
   // mpu.upsideDownMounting = true; // uncomment this line if the MPU6050 is mounted upside-down
-  mpu.calcOffsets(); // gyro and accelero
+  
   lox.begin(); // init. Range finder sensor
   // Set Port baudrate to 1M. This has to match with DYNAMIXEL baudrate.
   dxl.begin(1000000);
@@ -232,50 +239,55 @@ void setup() {
   tic.haltAndSetPosition(0);
   tic.exitSafeStart();
   tic.setTargetPosition(-22000);
-  //waitForPosition(-22000);
+  waitForPosition(-22000);
   tic.haltAndSetPosition(0);
   tic.setCurrentLimit(currentLimitWhileStopped);
   //initialized
   sound1();
   Serial.println("initialized");
+  mpu.calcOffsets(); // gyro and accelero
+  lox.startRangeContinuous();
 }
 
 unsigned long previousMillis = 0, timerx = 0;
 const long interval = 60000;
 bool working_Flag = true;
 bool rst_Flag = false;
+float distance =0.0;
 void loop()
 {
   //limitCheck(); // check limit switches >> turn motor torque off until sw1 is press and limit is not pressed. // not tested yet
   home_adj(); // manual calibration from on-board Switch
   //KILLSW();
-  VL53L0X_RangingMeasurementData_t measure;
+ // VL53L0X_RangingMeasurementData_t measure;
   // Serial.print("Reading a measurement... ");
-  lox.rangingTest(&measure, false); // pass in 'true' to get debug data printout!
-
-  if (measure.RangeStatus != 4) {  // phase failures have incorrect data
-    msg_angle.data[0] = measure.RangeMilliMeter;
+//  lox.rangingTest(&measure, false); // pass in 'true' to get debug data printout!
+/*
+  if (lox.isRangeComplete()) {  // phase failures have incorrect data
+    distance = lox.readRange();
+    if(distance >= 2000)
+    {
+    distance = 2222;  
+    }
     //Serial.print("Distance (mm): "); Serial.println(measure.RangeMilliMeter);
-  } else {
-    msg_angle.data[0] = 9999;
-  /*  Serial.println(" out of range ");*/
   }
-
-  mpu.update();
-
+*/
+  /*mpu.update();
+/*
   if ((millis() - timerx) > 10) { // print data every 10ms
-   /* Serial.print("X : ");
-    Serial.print(mpu.getAngleX());
-    Serial.print("\tY : ");
-    Serial.print(mpu.getAngleY());
-    Serial.print("\tZ : ");
-    Serial.println(mpu.getAngleZ());*/
+    msg_angle.data[0]= distance;
     msg_angle.data[1]=mpu.getAngleX();
     msg_angle.data[2]=mpu.getAngleY();
     msg_angle.data[3]=mpu.getAngleZ();
-    pub_angle.publish(&msg_angle);
-    timer = millis();
-  }
+   
+   /* Serial.print("X : ");
+    Serial.print(msg_angle.data[1]);
+    Serial.print("\tY : ");
+    Serial.print(msg_angle.data[2]);
+    Serial.print("\tZ : ");
+    Serial.println(msg_angle.data[3]);
+    timerx = millis();
+  }*/
 
   unsigned long currentMillis = millis();
   if (currentMillis - previousMillis >= interval && working_Flag == false)
@@ -302,6 +314,7 @@ void loop()
     home_adj();
   }
 
+  pub_angle.publish(&msg_angle);
   ROSFlag = false;
   working_Flag = false;
   nh.spinOnce();
@@ -333,6 +346,8 @@ void initializeServo()
   dxl.writeControlTableItem(MOVING_SPEED, 254, 50);
   dxl.setGoalPosition(254, 512); // set zero position of motor Center position(HOME)
   delay(5000);
+  dxl.writeControlTableItem(MOVING_SPEED, 1, 300);
+  dxl.writeControlTableItem(MOVING_SPEED, 2, 300);
   dxl.writeControlTableItem(MOVING_SPEED, 3, 300);
   dxl.writeControlTableItem(MOVING_SPEED, 4, 300);
   dxl.writeControlTableItem(MOVING_SPEED, 5, 300);
