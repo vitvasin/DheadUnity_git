@@ -1,4 +1,4 @@
-//31/10/2022 disable IMU and distance sensor pulling/ adjust motor speed
+//31/10/2022 disable IMU and distance sensor pulling/ adjust motor speed >> tested 31/40/2022
 //29-6-2022 add flag to check if it disconnected (not tested)
 //24-6-2022 can use Push bt2. to restart the initial position &&LB offset
 //8-6-2022 add time counter for disable(temporary) current supplying to linear actuator
@@ -314,7 +314,7 @@ void loop()
     home_adj();
   }
 
-  pub_angle.publish(&msg_angle);
+//  pub_angle.publish(&msg_angle);
   ROSFlag = false;
   working_Flag = false;
   nh.spinOnce();
