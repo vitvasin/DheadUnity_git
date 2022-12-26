@@ -8,5 +8,6 @@ For more detailed information, please refer to the paper at https://ieeexplore.i
 4. Motor for height adjustment: Actuonix S20-50-38-B (https://www.actuonix.com/s20-50-38-b)
 5. Motor driver for Actuonix: TIC T825 (https://www.actuonix.com/tic-t825)
  
+Motor Setup (Arduino IDE): https://docs.google.com/document/d/1HrOriJ6pQHqLC_bzlZgfvycsu1qH7RzwjF1YlVwoNc8/edit?usp=sharing
 ## Subscribe Topics & Parameters 
 (to be updated)
