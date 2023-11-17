@@ -206,14 +206,7 @@ void setup() {
   initializeServo();
 
   LEDRun();
-  tic.setCurrentLimit(currentLimitWhileMoving);
-  delay(20);
-  tic.haltAndSetPosition(0);
-  tic.exitSafeStart();
-  tic.setTargetPosition(-22000);
-  waitForPosition(-22000);
-  tic.haltAndSetPosition(0);
-  tic.setCurrentLimit(currentLimitWhileStopped);
+
   //initialized
   sound1();
   Serial.println("initialized");
@@ -239,8 +232,8 @@ void loop()
   if (ROSFlag)
   {
     working_Flag = true;
-    tic.setCurrentLimit(currentLimitWhileMoving);
-    resetCommandTimeout();
+   // tic.setCurrentLimit(currentLimitWhileMoving);
+   // resetCommandTimeout();
     waisttoMotor(fe, lb+lb_offset);
     dxl.setGoalPosition(3, oyaw);
     dxl.setGoalPosition(4, opitch);
